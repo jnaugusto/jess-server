@@ -11,10 +11,10 @@ Content-Disposition: form-data; name="quality"
 
 50
 ------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="file"; filename="test.jepg"
+Content-Disposition: form-data; name="file"; filename="test.jpeg"
 Content-Type: image/jpeg
 
-< ./test/fixtures/sample.jpg
+< ./test/fixtures/test.jpeg
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--
 
 ### 2. Compress and Download (Returns Binary Image)
@@ -27,8 +27,8 @@ Content-Disposition: form-data; name="quality"
 
 80
 ------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="file"; filename="test.jpg"
+Content-Disposition: form-data; name="file"; filename="test.jpeg"
 Content-Type: image/jpeg
 
-< ./test/fixtures/sample.jpg
+< ./test/fixtures/test.jpeg
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--

@@ -21,7 +21,9 @@ async function bootstrap() {
 
   const httpAdapterHost = app.get(HttpAdapterHost);
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: ['health'],
+  });
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));

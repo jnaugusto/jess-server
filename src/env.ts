@@ -7,9 +7,7 @@ export const env = createEnv({
       .string()
       .default('3000')
       .transform((s) => parseInt(s, 10)),
-    NODE_ENV: z
-      .enum(['development', 'test', 'production'])
-      .default('development'),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
