@@ -1,8 +1,8 @@
-import { Controller, Post, UseInterceptors, UploadedFile, Body, Header, Res } from '@nestjs/common';
+import { Body, Controller, Header, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ImageService } from './image.service';
 import type { Response } from 'express';
 import { CompressImageDto } from './dto/compress-image.dto';
+import { ImageService } from './image.service';
 
 @Controller('image')
 export class ImageController {

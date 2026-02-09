@@ -23,11 +23,14 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@t3-oss/env-core": "^0.13.10",
+    "@total-typescript/ts-reset": "^0.6.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
