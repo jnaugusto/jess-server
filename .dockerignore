@@ -1,0 +1,12 @@
+node_modules
+dist
+.asset
+.git
+.gitignore
+.prettierrc
+.eslintrc.js
+Dockerfile
+.dockerignore
+test
+*.md
+pnpm-lock.yaml
