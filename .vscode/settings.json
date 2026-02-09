@@ -1,0 +1,15 @@
+{
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit",
+        "source.organizeImports": "explicit"
+    },
+    "eslint.validate": [
+        "typescript",
+        "javascript"
+    ],
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true
+}
