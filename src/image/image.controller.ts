@@ -1,4 +1,12 @@
-import { Body, Controller, Header, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Header,
+  Post,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -47,7 +55,10 @@ export class ImageController {
     @Body() compressImageDto: CompressImageDto,
   ) {
     const quality = compressImageDto.quality ?? 80;
-    const compressedBuffer = await this.imageService.compressImage(file, quality);
+    const compressedBuffer = await this.imageService.compressImage(
+      file,
+      quality,
+    );
 
     return {
       originalName: file.originalname,
@@ -90,7 +101,10 @@ export class ImageController {
     @Res() res: Response,
   ) {
     const quality = compressImageDto.quality ?? 80;
-    const compressedBuffer = await this.imageService.compressImage(file, quality);
+    const compressedBuffer = await this.imageService.compressImage(
+      file,
+      quality,
+    );
 
     res.set({
       'Content-Disposition': `attachment; filename="compressed_${
