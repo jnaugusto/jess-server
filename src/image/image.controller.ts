@@ -171,8 +171,8 @@ export class ImageController {
     file: Express.Multer.File,
     @Body() upscaleImageDto: UpscaleImageDto,
   ) {
-    const factor = upscaleImageDto.factor ?? 2;
-    return await this.imageService.upscaleImage(file, factor);
+    const { factor = 2, model = 'remacri' } = upscaleImageDto;
+    return await this.imageService.upscaleImage(file, factor, model);
   }
 
   @Get('upscale/:jobId')

@@ -1,10 +1,20 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
+import { exec } from 'child_process';
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
+import { promisify } from 'util';
+
+const execPromise = promisify(exec);
 
 interface UpscaleJobData {
   fileName: string;
   upscaleFactor: number;
+  buffer: Buffer;
+  mimeType: string;
+  model: string;
 }
 
 @Processor('image-processing')
@@ -13,7 +23,7 @@ export class ImageProcessor extends WorkerHost {
 
   async process(
     job: Job<UpscaleJobData>,
-  ): Promise<{ success: boolean; fileName: string } | undefined> {
+  ): Promise<{ success: boolean; base64: string } | undefined> {
     switch (job.name) {
       case 'upscale':
         return await this.handleUpscale(job);
@@ -25,18 +35,68 @@ export class ImageProcessor extends WorkerHost {
 
   private async handleUpscale(job: Job<UpscaleJobData>) {
     const { data } = job;
-    this.logger.log(`Upscaling image: ${data.fileName} by ${String(data.upscaleFactor)}x`);
+    const jobId = job.id ?? Date.now().toString();
 
-    await job.updateProgress(10);
-    await new Promise((resolve) => setTimeout(resolve, 10000));
+    // Use /tmp in linux/docker, or os.tmpdir() for portability
+    const tempDir = os.tmpdir();
+    const inputPath = path.join(tempDir, `input_${jobId}_${data.fileName}`);
+    // Output is usually PNG by default in Real-ESRGAN if not specified,
+    // but we'll use the same extension as input to be safe, or just .png
+    const outputPath = path.join(tempDir, `output_${jobId}_${data.fileName.split('.')[0]}.png`);
 
-    await job.updateProgress(50);
-    await new Promise((resolve) => setTimeout(resolve, 10000));
+    this.logger.log(
+      `Upscaling image locally (CPU): ${data.fileName} by ${String(data.upscaleFactor)}x`,
+    );
 
-    await job.updateProgress(90);
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    try {
+      await job.updateProgress(5);
 
-    this.logger.log(`Finished upscaling: ${data.fileName}`);
-    return { success: true, fileName: data.fileName };
+      // Save input buffer to temp file
+      await fs.writeFile(inputPath, Buffer.from(data.buffer));
+      await job.updateProgress(10);
+
+      // -g -1 forces CPU mode. -m specifies the models path for the Docker container.
+      const modelsPath = process.env.NODE_ENV === 'production' ? '/opt/upscayl/models' : 'models';
+      const cmd = `upscayl-bin -i "${inputPath}" -o "${outputPath}" -s ${String(data.upscaleFactor)} -g -1 -m "${modelsPath}" -n ${data.model}`;
+
+      this.logger.log(`Executing: ${cmd}`);
+
+      // This will be slow on CPU
+      await execPromise(cmd);
+      await job.updateProgress(90);
+
+      // Read result
+      const outputBuffer = await fs.readFile(outputPath);
+      const base64 = `data:image/png;base64,${outputBuffer.toString('base64')}`;
+
+      // Cleanup
+      await Promise.all([
+        fs.unlink(inputPath).catch(() => {
+          /* ignore */
+        }),
+        fs.unlink(outputPath).catch(() => {
+          /* ignore */
+        }),
+      ]);
+
+      await job.updateProgress(100);
+      this.logger.log(`Finished local upscaling: ${data.fileName}`);
+
+      return { success: true, base64 };
+    } catch (error) {
+      this.logger.error(`Error during local upscale: ${(error as Error).message}`);
+
+      // Ensure cleanup on error
+      await Promise.all([
+        fs.unlink(inputPath).catch(() => {
+          /* ignore */
+        }),
+        fs.unlink(outputPath).catch(() => {
+          /* ignore */
+        }),
+      ]);
+
+      throw error;
+    }
   }
 }

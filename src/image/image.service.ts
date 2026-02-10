@@ -13,11 +13,18 @@ export class ImageService {
     private readonly queueService: QueueService,
   ) {}
 
-  async upscaleImage(file: Express.Multer.File, factor = 2): Promise<{ jobId: string }> {
+  async upscaleImage(
+    file: Express.Multer.File,
+    factor = 2,
+    model = 'remacri',
+  ): Promise<{ jobId: string }> {
     try {
       const job = await this.imageQueue.add('upscale', {
         fileName: file.originalname,
         upscaleFactor: factor,
+        buffer: file.buffer,
+        mimeType: file.mimetype,
+        model,
       });
 
       return { jobId: String(job.id) };

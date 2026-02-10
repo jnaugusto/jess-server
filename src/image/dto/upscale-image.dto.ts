@@ -16,4 +16,13 @@ export class UpscaleImageDto {
   @Min(2)
   @Max(4)
   factor?: number = 2;
+
+  @ApiProperty({
+    description:
+      'The name of the model to use (e.g., realesrgan-x4plus, or your custom model name)',
+    default: 'remacri',
+    required: false,
+  })
+  @IsOptional()
+  model?: string = 'remacri';
 }
