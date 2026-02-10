@@ -32,3 +32,19 @@ Content-Type: image/jpeg
 
 < ./test/fixtures/test.jpeg
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 3. Upscale Image (Queues Background Task)
+# This will return a jobId
+POST {{baseUrl}}/image/upscale
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="factor"
+
+2
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="test.jpeg"
+Content-Type: image/jpeg
+
+< ./test/fixtures/test.jpeg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--

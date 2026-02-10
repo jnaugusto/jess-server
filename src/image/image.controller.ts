@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  FileTypeValidator,
   Header,
+  MaxFileSizeValidator,
+  ParseFilePipe,
   Post,
   Res,
   UploadedFile,
@@ -11,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CompressImageDto } from './dto/compress-image.dto';
+import { UpscaleImageDto } from './dto/upscale-image.dto';
 import { ImageService } from './image.service';
 
 @ApiTags('image')
@@ -51,14 +55,19 @@ export class ImageController {
   })
   @UseInterceptors(FileInterceptor('file'))
   async compressImage(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB limit
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp|gif)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
     @Body() compressImageDto: CompressImageDto,
   ) {
     const quality = compressImageDto.quality ?? 80;
-    const compressedBuffer = await this.imageService.compressImage(
-      file,
-      quality,
-    );
+    const compressedBuffer = await this.imageService.compressImage(file, quality);
 
     return {
       originalName: file.originalname,
@@ -96,15 +105,20 @@ export class ImageController {
   @UseInterceptors(FileInterceptor('file'))
   @Header('Content-Type', 'image/webp')
   async compressAndDownload(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB limit
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp|gif)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
     @Body() compressImageDto: CompressImageDto,
     @Res() res: Response,
   ) {
     const quality = compressImageDto.quality ?? 80;
-    const compressedBuffer = await this.imageService.compressImage(
-      file,
-      quality,
-    );
+    const compressedBuffer = await this.imageService.compressImage(file, quality);
 
     res.set({
       'Content-Disposition': `attachment; filename="compressed_${
@@ -114,5 +128,44 @@ export class ImageController {
     });
 
     res.end(compressedBuffer);
+  }
+
+  @Post('upscale')
+  @ApiOperation({
+    summary: 'Queue an image upscaling and optimization task',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+        factor: {
+          type: 'integer',
+          default: 2,
+          minimum: 2,
+          maximum: 4,
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async upscaleImage(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB limit
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp|gif)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Body() upscaleImageDto: UpscaleImageDto,
+  ) {
+    const factor = upscaleImageDto.factor ?? 2;
+    return await this.imageService.upscaleImage(file, factor);
   }
 }
