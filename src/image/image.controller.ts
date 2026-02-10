@@ -2,17 +2,23 @@ import {
   Body,
   Controller,
   FileTypeValidator,
+  Get,
   Header,
   MaxFileSizeValidator,
+  MessageEvent,
+  NotFoundException,
+  Param,
   ParseFilePipe,
   Post,
   Res,
+  Sse,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { Observable } from 'rxjs';
 import { CompressImageDto } from './dto/compress-image.dto';
 import { UpscaleImageDto } from './dto/upscale-image.dto';
 import { ImageService } from './image.service';
@@ -167,5 +173,25 @@ export class ImageController {
   ) {
     const factor = upscaleImageDto.factor ?? 2;
     return await this.imageService.upscaleImage(file, factor);
+  }
+
+  @Get('upscale/:jobId')
+  @ApiOperation({
+    summary: 'Get the status and progress of an upscaling task',
+  })
+  async getUpscaleStatus(@Param('jobId') jobId: string) {
+    const status = await this.imageService.getJobStatus(jobId);
+    if (!status) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+    return status;
+  }
+
+  @Sse('upscale/:jobId/progress')
+  @ApiOperation({
+    summary: 'Stream the progress of an upscaling task using SSE',
+  })
+  getUpscaleProgress(@Param('jobId') jobId: string): Observable<MessageEvent> {
+    return this.imageService.getJobProgressStream(jobId);
   }
 }

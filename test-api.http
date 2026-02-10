@@ -48,3 +48,13 @@ Content-Type: image/jpeg
 
 < ./test/fixtures/test.jpeg
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 4. Check Upscale Status
+# Replace {jobId} with the ID returned from the upscale request
+@jobId = 13
+GET {{baseUrl}}/image/upscale/{{jobId}}
+
+### 5. Stream Upscale Progress (SSE)
+# This will hold a persistent connection and push data every 2s
+GET {{baseUrl}}/image/upscale/{{jobId}}/progress
+Accept: text/event-stream

@@ -1,3 +1,5 @@
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { BullBoardModule } from '@bull-board/nestjs';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ImageController } from './image.controller';
@@ -8,6 +10,10 @@ import { ImageService } from './image.service';
   imports: [
     BullModule.registerQueue({
       name: 'image-processing',
+    }),
+    BullBoardModule.forFeature({
+      name: 'image-processing',
+      adapter: BullMQAdapter,
     }),
   ],
   providers: [ImageService, ImageProcessor],
