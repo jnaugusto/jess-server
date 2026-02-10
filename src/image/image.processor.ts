@@ -61,8 +61,17 @@ export class ImageProcessor extends WorkerHost {
 
       this.logger.log(`Executing: ${cmd}`);
 
-      // This will be slow on CPU
-      await execPromise(cmd);
+      try {
+        await execPromise(cmd);
+      } catch (execError) {
+        const error = execError as Error;
+        if (error.message.includes('not found') || error.message.includes('ENOENT')) {
+          throw new Error(
+            'upscayl-bin not found. If running locally on Mac, install it via "brew install upscayl-ncnn" or run via Docker.',
+          );
+        }
+        throw error;
+      }
       await job.updateProgress(90);
 
       // Read result

@@ -21,11 +21,7 @@ COPY . .
 RUN pnpm run build
 
 # Production stage
-FROM node:22-slim AS runner
-
-# Use build args to detect architecture
-ARG TARGETPLATFORM
-RUN echo "Building for $TARGETPLATFORM"
+FROM --platform=linux/amd64 node:22-slim AS runner
 
 # Install dependencies for Upscayl/Real-ESRGAN and image processing
 RUN apt-get update && apt-get install -y \
@@ -36,19 +32,15 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Upscayl CLI binary and models based on architecture
-RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      # ARM64 (M4 Mac / ARM Servers)
-      wget https://github.com/upscayl/upscayl-ncnn/releases/download/v202311021448-nightly/upscayl-bin-202311021448-linux-arm64.zip -O upscayl.zip; \
-    else \
-      # x86_64 (Windows Server / Standard Linux)
-      wget https://github.com/upscayl/upscayl/releases/download/v2.11.5/upscayl-2.11.5-linux.zip -O upscayl.zip; \
-    fi && \
+# Install Upscayl CLI binary and models
+# Note: We use the linux-x86_64 version because it is the most stable.
+# Docker Desktop on Mac (M1/M2/M3/M4) will run this via Rosetta 2 automatically.
+RUN wget https://github.com/upscayl/upscayl/releases/download/v2.11.5/upscayl-2.11.5-linux.zip -O upscayl.zip && \
     unzip upscayl.zip -d /opt/upscayl_temp && \
     mkdir -p /opt/upscayl/models && \
-    # Find upscayl-bin and models wherever they are in the zip (it varies per version)
-    find /opt/upscayl_temp -name "upscayl-bin" -exec mv {} /usr/local/bin/upscayl-bin \; || \
-    find /opt/upscayl_temp -name "upscayl-ncnn" -exec mv {} /usr/local/bin/upscayl-bin \; && \
+    # Find the backend binary (can be upscayl-bin or upscayl-ncnn)
+    find /opt/upscayl_temp -type f \( -name "upscayl-bin" -o -name "upscayl-ncnn" \) -exec mv {} /usr/local/bin/upscayl-bin \; && \
+    # Find the models directory and copy its contents
     find /opt/upscayl_temp -name "models" -type d -exec cp -r {}/. /opt/upscayl/models/ \; && \
     chmod +x /usr/local/bin/upscayl-bin && \
     rm -rf /opt/upscayl_temp upscayl.zip
