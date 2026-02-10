@@ -23,6 +23,10 @@ RUN pnpm run build
 # Production stage
 FROM node:22-slim AS runner
 
+# Use build args to detect architecture
+ARG TARGETPLATFORM
+RUN echo "Building for $TARGETPLATFORM"
+
 # Install dependencies for Upscayl/Real-ESRGAN and image processing
 RUN apt-get update && apt-get install -y \
     wget \
@@ -32,24 +36,29 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Upscayl CLI binary and models
-# We download the Linux release which contains the upscayl-bin and models
-RUN wget https://github.com/upscayl/upscayl/releases/download/v2.11.5/upscayl-2.11.5-linux.zip && \
-    unzip upscayl-2.11.5-linux.zip -d /opt/upscayl_temp && \
+# Install Upscayl CLI binary and models based on architecture
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+      # ARM64 (M4 Mac / ARM Servers)
+      wget https://github.com/upscayl/upscayl-ncnn/releases/download/v202311021448-nightly/upscayl-bin-202311021448-linux-arm64.zip -O upscayl.zip; \
+    else \
+      # x86_64 (Windows Server / Standard Linux)
+      wget https://github.com/upscayl/upscayl/releases/download/v2.11.5/upscayl-2.11.5-linux.zip -O upscayl.zip; \
+    fi && \
+    unzip upscayl.zip -d /opt/upscayl_temp && \
     mkdir -p /opt/upscayl/models && \
-    # Upscayl Linux zip structure: resources/bin/upscayl-bin and resources/models/
-    mv /opt/upscayl_temp/resources/bin/upscayl-bin /usr/local/bin/upscayl-bin && \
-    mv /opt/upscayl_temp/resources/models/* /opt/upscayl/models/ && \
+    # Find upscayl-bin and models wherever they are in the zip (it varies per version)
+    find /opt/upscayl_temp -name "upscayl-bin" -exec mv {} /usr/local/bin/upscayl-bin \; || \
+    find /opt/upscayl_temp -name "upscayl-ncnn" -exec mv {} /usr/local/bin/upscayl-bin \; && \
+    find /opt/upscayl_temp -name "models" -type d -exec cp -r {}/. /opt/upscayl/models/ \; && \
     chmod +x /usr/local/bin/upscayl-bin && \
-    rm -rf /opt/upscayl_temp upscayl-2.11.5-linux.zip
+    rm -rf /opt/upscayl_temp upscayl.zip
 
 # Create models directory and copy custom models if they exist
-# This allows overriding or adding models to /opt/upscayl/models
 COPY models* /opt/upscayl/models/
 
 WORKDIR /app
 
-# Install production dependencies only (including sharp for linux)
+# Install production dependencies only
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && \
     corepack prepare pnpm@latest --activate
