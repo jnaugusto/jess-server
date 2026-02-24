@@ -1,0 +1,7 @@
+bucket_definitions:
+  user_data:
+    # Separate bucket for each user to ensure isolation
+    parameters: SELECT request.user_id() as user_id
+    data:
+      - SELECT * FROM tracks WHERE user_id = bucket.user_id
+      - SELECT * FROM location_points WHERE user_id = bucket.user_id

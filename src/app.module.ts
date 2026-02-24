@@ -4,9 +4,14 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
+import { DatabaseModule } from './database/database.module';
 import { env } from './env';
 import { ImageModule } from './image/image.module';
+import { PdfModule } from './pdf/pdf.module';
+import { PowerSyncModule } from './powersync/powersync.module';
+import { TemplateModule } from './template/template.module';
 
 @Module({
   imports: [
@@ -22,6 +27,11 @@ import { ImageModule } from './image/image.module';
     }),
     CommonModule,
     ImageModule,
+    PdfModule,
+    TemplateModule,
+    DatabaseModule,
+    PowerSyncModule,
+    AuthModule.register(),
   ],
   controllers: [AppController],
   providers: [AppService],

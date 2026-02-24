@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   FileTypeValidator,
   Get,
   Header,
+  InternalServerErrorException,
   MaxFileSizeValidator,
   MessageEvent,
   NotFoundException,
@@ -17,7 +19,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
+import * as express from 'express';
 import { Observable } from 'rxjs';
 import { CompressImageDto } from './dto/compress-image.dto';
 import { UpscaleImageDto } from './dto/upscale-image.dto';
@@ -32,14 +34,14 @@ export class ImageController {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${String(parseFloat((bytes / Math.pow(k, i)).toFixed(dm)))} ${sizes[i]}`;
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm)).toString()} ${sizes[i]}`;
   }
 
   @Post('compress')
   @ApiOperation({
-    summary: 'Compress an image and return metadata with base64',
+    summary: 'Compress an image and optimize it (Returns Base64 + Metadata)',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -76,6 +78,7 @@ export class ImageController {
     const compressedBuffer = await this.imageService.compressImage(file, quality);
 
     return {
+      success: true,
       originalName: file.originalname,
       compressedName: `compressed_${file.originalname.split('.')[0]}.webp`,
       mimeType: 'image/webp',
@@ -121,7 +124,7 @@ export class ImageController {
     )
     file: Express.Multer.File,
     @Body() compressImageDto: CompressImageDto,
-    @Res() res: Response,
+    @Res() res: express.Response,
   ) {
     const quality = compressImageDto.quality ?? 80;
     const compressedBuffer = await this.imageService.compressImage(file, quality);
@@ -155,6 +158,11 @@ export class ImageController {
           minimum: 2,
           maximum: 4,
         },
+        model: {
+          type: 'string',
+          default: '4x_NMKD-Siax_200k',
+          description: 'The name of the model to use',
+        },
       },
     },
   })
@@ -171,8 +179,51 @@ export class ImageController {
     file: Express.Multer.File,
     @Body() upscaleImageDto: UpscaleImageDto,
   ) {
-    const { factor = 2, model = 'remacri' } = upscaleImageDto;
+    const { factor = 2, model = '4x_NMKD-Siax_200k' } = upscaleImageDto;
     return await this.imageService.upscaleImage(file, factor, model);
+  }
+
+  @Get('upscale/:jobId/download')
+  @ApiOperation({
+    summary: 'Download the completed upscaled image',
+  })
+  async downloadUpscaledImage(@Param('jobId') jobId: string, @Res() res: express.Response) {
+    const status = await this.imageService.getJobStatus(jobId);
+
+    if (!status) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+
+    if (status.state !== 'completed') {
+      throw new BadRequestException(`Job is not completed yet. Current state: ${status.state}`);
+    }
+
+    // Handle different result formats (direct string or object with base64)
+    let base64 = '';
+    if (typeof status.result === 'string') {
+      base64 = status.result;
+    } else if (status.result && typeof status.result === 'object') {
+      const result = status.result as { base64?: string };
+      base64 = result.base64 ?? '';
+    }
+
+    if (!base64.includes('base64,')) {
+      throw new InternalServerErrorException(
+        `Upscaled image result is invalid or missing base64 data. Result: ${JSON.stringify(status.result)}`,
+      );
+    }
+
+    // Convert base64 to buffer
+    const base64Data = base64.split('base64,')[1];
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    res.set({
+      'Content-Type': 'image/png',
+      'Content-Disposition': `attachment; filename="upscaled_${jobId}.png"`,
+      'Content-Length': imageBuffer.length,
+    });
+
+    res.end(imageBuffer);
   }
 
   @Get('upscale/:jobId')

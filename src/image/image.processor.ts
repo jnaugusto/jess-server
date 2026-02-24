@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
+import sharp from 'sharp'; // Add this dependency
 import { promisify } from 'util';
 
 const execPromise = promisify(exec);
@@ -36,51 +37,93 @@ export class ImageProcessor extends WorkerHost {
   private async handleUpscale(job: Job<UpscaleJobData>) {
     const { data } = job;
     const jobId = job.id ?? Date.now().toString();
+    const upscaleFactor = '2';
 
-    // Use /tmp in linux/docker, or os.tmpdir() for portability
     const tempDir = os.tmpdir();
-    const inputPath = path.join(tempDir, `input_${jobId}_${data.fileName}`);
-    // Output is usually PNG by default in Real-ESRGAN if not specified,
-    // but we'll use the same extension as input to be safe, or just .png
-    const outputPath = path.join(tempDir, `output_${jobId}_${data.fileName.split('.')[0]}.png`);
+    const inputPath = path.join(tempDir, `input_${jobId}.png`); // Always use PNG for input
+    const normalizedPath = path.join(tempDir, `normalized_${jobId}.png`);
+    const outputPath = path.join(tempDir, `output_${jobId}.png`);
 
     this.logger.log(
-      `Upscaling image locally (CPU): ${data.fileName} by ${String(data.upscaleFactor)}x`,
+      `Upscaling image: ${data.fileName} by ${upscaleFactor}x using model ${data.model}`,
     );
 
     try {
       await job.updateProgress(5);
 
-      // Save input buffer to temp file
-      await fs.writeFile(inputPath, Buffer.from(data.buffer));
+      // Convert buffer
+      let imageBuffer: Buffer;
+      const bufferData = data.buffer as unknown as { type: string; data: number[] };
+      if (Buffer.isBuffer(data.buffer)) {
+        imageBuffer = data.buffer;
+      } else if (
+        typeof data.buffer === 'object' &&
+        bufferData.type === 'Buffer' &&
+        Array.isArray(bufferData.data)
+      ) {
+        imageBuffer = Buffer.from(bufferData.data);
+      } else {
+        imageBuffer = Buffer.from(data.buffer);
+      }
+
+      await fs.writeFile(inputPath, imageBuffer);
       await job.updateProgress(10);
 
-      // -g -1 forces CPU mode. -m specifies the models path for the Docker container.
+      // **CRITICAL FIX: Normalize the image first to prevent color artifacts**
+      this.logger.log('Normalizing image...');
+      await sharp(inputPath)
+        .removeAlpha() // Remove transparency
+        .toColorspace('srgb') // Ensure sRGB color space
+        .png({ compressionLevel: 0 }) // Uncompressed for best quality
+        .toFile(normalizedPath);
+
+      await job.updateProgress(20);
+
       const modelsPath = process.env.NODE_ENV === 'production' ? '/opt/upscayl/models' : 'models';
-      const cmd = `upscayl-bin -i "${inputPath}" -o "${outputPath}" -s ${String(data.upscaleFactor)} -g -1 -m "${modelsPath}" -n ${data.model}`;
+
+      // Debug: List models directory
+      try {
+        const files = await fs.readdir(modelsPath);
+        this.logger.log(`Available models in ${modelsPath}: ${files.join(', ')}`);
+      } catch (e) {
+        this.logger.error(`Could not list models in ${modelsPath}: ${(e as Error).message}`);
+      }
+
+      // Optimized params: -s for explicit scale, -x for TTA mode (better quality), -t 400 for larger tiles (fewer artifacts)
+      const cmd = `realesrgan-ncnn-vulkan -i "${normalizedPath}" -o "${outputPath}" -s ${upscaleFactor} -m "${modelsPath}" -n ${data.model} -t 400 -x -f png -v`;
 
       this.logger.log(`Executing: ${cmd}`);
 
       try {
-        await execPromise(cmd);
-      } catch (execError) {
-        const error = execError as Error;
-        if (error.message.includes('not found') || error.message.includes('ENOENT')) {
+        const { stdout, stderr } = await execPromise(cmd);
+        if (stdout) this.logger.log(`stdout: ${stdout}`);
+        if (stderr) this.logger.warn(`stderr: ${stderr}`);
+      } catch (e: unknown) {
+        const execError = e as { stderr?: string; stdout?: string; message: string };
+        const stderr = execError.stderr ?? '';
+        const stdout = execError.stdout ?? '';
+        this.logger.error(`Upscayl failed. Stderr: ${stderr}, Stdout: ${stdout}`);
+
+        if (stderr.includes('not found') || execError.message.includes('ENOENT')) {
           throw new Error(
-            'upscayl-bin not found. If running locally on Mac, install it via "brew install upscayl-ncnn" or run via Docker.',
+            'realesrgan-ncnn-vulkan not found. Please ensure the binary is installed in the Docker container.',
           );
         }
-        throw error;
+        throw e;
       }
+
       await job.updateProgress(90);
 
       // Read result
       const outputBuffer = await fs.readFile(outputPath);
       const base64 = `data:image/png;base64,${outputBuffer.toString('base64')}`;
 
-      // Cleanup
+      // Cleanup all temp files
       await Promise.all([
         fs.unlink(inputPath).catch(() => {
+          /* ignore */
+        }),
+        fs.unlink(normalizedPath).catch(() => {
           /* ignore */
         }),
         fs.unlink(outputPath).catch(() => {
@@ -89,15 +132,18 @@ export class ImageProcessor extends WorkerHost {
       ]);
 
       await job.updateProgress(100);
-      this.logger.log(`Finished local upscaling: ${data.fileName}`);
+      this.logger.log(`Finished upscaling: ${data.fileName}`);
 
       return { success: true, base64 };
     } catch (error) {
-      this.logger.error(`Error during local upscale: ${(error as Error).message}`);
+      this.logger.error(`Error during upscale: ${(error as Error).message}`);
 
       // Ensure cleanup on error
       await Promise.all([
         fs.unlink(inputPath).catch(() => {
+          /* ignore */
+        }),
+        fs.unlink(normalizedPath).catch(() => {
           /* ignore */
         }),
         fs.unlink(outputPath).catch(() => {

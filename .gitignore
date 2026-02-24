@@ -40,3 +40,16 @@ lerna-debug.log*
 thumbs.db
 .DS_Store
 *.bak
+
+# Security
+*.pem
+
+# pnpm
+.pnpm-store
+
+# IDE / Scratch files
+*.http
+
+# AI models
+*.bin
+*.param

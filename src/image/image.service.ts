@@ -16,7 +16,7 @@ export class ImageService {
   async upscaleImage(
     file: Express.Multer.File,
     factor = 2,
-    model = 'remacri',
+    model = '4x_NMKD-Siax_200k',
   ): Promise<{ jobId: string }> {
     try {
       const job = await this.imageQueue.add('upscale', {

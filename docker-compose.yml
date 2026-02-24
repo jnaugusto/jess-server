@@ -1,0 +1,42 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: jess_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  app:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules # Preserve node_modules inside container
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - NODE_OPTIONS=--experimental-require-module
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/jess_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3005
+    depends_on:
+      - db
+      - redis
+    command: sh -c "npm install -g pnpm@latest && pnpm install --frozen-lockfile && pnpm run start:dev"
+
+volumes:
+  postgres_data:

@@ -9,6 +9,10 @@ import { env } from './env';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableCors({
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    credentials: true,
+  });
 
   const config = new DocumentBuilder()
     .setTitle('Jess Server API')
@@ -29,6 +33,6 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
   app.enableShutdownHooks();
 
-  await app.listen(env.PORT);
+  await app.listen(env.PORT, '0.0.0.0');
 }
 void bootstrap();
