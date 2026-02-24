@@ -27,6 +27,7 @@ services:
     ports:
       - "3005:3005"
     environment:
+      - CI=true
       - NODE_ENV=development
       - NODE_OPTIONS=--experimental-require-module
       - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/jess_db
