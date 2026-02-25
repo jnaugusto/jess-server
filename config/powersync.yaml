@@ -1,0 +1,44 @@
+# PowerSync Service Configuration
+# https://docs.powersync.com/self-hosting
+
+replication:
+  connections:
+    - type: postgresql
+      uri: postgresql://postgres:postgrespassword@db:5432/jess_db
+      # SSL settings
+      sslmode: disable
+
+# Connection settings for bucket storage (using Postgres instead of MongoDB)
+storage:
+  type: postgresql
+  uri: postgresql://postgres:postgrespassword@db:5432/powersync_storage
+  sslmode: disable
+
+# The port which the PowerSync API server will listen on
+port: 8080
+
+# Specify sync rules
+sync_rules:
+  content: |
+    bucket_definitions:
+      user_data:
+        # Separate bucket for each user to ensure isolation
+        parameters: SELECT request.user_id() as user_id
+        data:
+          - SELECT * FROM tracks WHERE user_id = bucket.user_id
+          - SELECT * FROM location_points WHERE user_id = bucket.user_id
+
+# Settings for client authentication
+client_auth:
+  supabase: false
+  jwks:
+    keys:
+      - kty: 'RSA'
+        n: 'p-f7-sRaH6nB9N-oQEgLJdSbo4CtD7saurxpydqzKovkqoiA8q_vAsvKDCP3RPWU2g8MKGFRrkZUkVWl0ARpwUWT5XDCOX4JlDkkR0almXb8BCTIQXj3SmAqrwbutxOIwjEl7MGqqd53dIUSBPhUcotszSpRXMWT6dz_ovNVGjUNzZS4nMZQJ-BL_cZVyi2wOEYkXpSGH1tzw6UKcjRYzkqQxzGfrmFV5Irv2eCJHMzeoNB14FLKh9FswbvRFwuso6DSpK9kvE_FeR1pGciNfQZ5t5eFWq4xM4TUWVGJg5ObhVaOJ-awaABMRanxHYhAXfJo2kt_lo1CDLyazkittQ'
+        e: 'AQAB'
+        alg: 'RS256'
+        kid: 'powersync-key-1'
+
+# Settings for telemetry reporting
+telemetry:
+  disable_telemetry_sharing: true

@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+# Create the PowerSync storage database (separate from jess_db)
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    SELECT 'CREATE DATABASE powersync_storage'
+    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'powersync_storage')\gexec
+EOSQL

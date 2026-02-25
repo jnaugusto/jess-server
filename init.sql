@@ -69,3 +69,12 @@ CREATE TABLE IF NOT EXISTS verification (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- PowerSync publication for logical replication
+-- This allows PowerSync to track changes on these tables via WAL
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'powersync') THEN
+    CREATE PUBLICATION powersync FOR TABLE tracks, location_points;
+  END IF;
+END $$;
