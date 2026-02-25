@@ -21,7 +21,7 @@ async function bootstrap() {
     .addTag('jess')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, documentFactory);
+  SwaggerModule.setup('docs', app, documentFactory);
 
   const httpAdapterHost = app.get(HttpAdapterHost);
 
