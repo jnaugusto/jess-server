@@ -25,8 +25,9 @@ async function bootstrap() {
 
   const httpAdapterHost = app.get(HttpAdapterHost);
 
-  app.setGlobalPrefix('api', {
-    exclude: ['health'],
+  app.enableCors({
+    origin: ['http://localhost:3005', 'http://127.0.0.1:3005', 'https://api.jnaugusto.com'],
+    credentials: true,
   });
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useGlobalInterceptors(new TransformInterceptor());
