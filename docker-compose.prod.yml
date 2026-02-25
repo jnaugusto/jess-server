@@ -19,9 +19,10 @@ services:
     healthcheck:
       # Simplified healthcheck - pg_isready doesn't actually need a database name to check readiness
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 10 # increased retries for slower prod environments
+      retries: 10
+      start_period: 40s # Ignore failures for first 40s during init scripts
 
   redis:
     image: redis:alpine
