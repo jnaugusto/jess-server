@@ -33,8 +33,7 @@ services:
     image: journeyapps/powersync-service:latest
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     command: ["start", "-r", "unified"]
     volumes:
       - ./config/powersync.yaml:/config/config.yaml
