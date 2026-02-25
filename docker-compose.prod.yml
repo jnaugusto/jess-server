@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   db:
     image: postgres:17-alpine
@@ -18,10 +17,11 @@ services:
     # Enable logical replication for PowerSync WAL tracking + md5 for pgwire compatibility
     command: ["postgres", "-c", "wal_level=logical", "-c", "password_encryption=md5"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d jess_db"]
+      # Simplified healthcheck - pg_isready doesn't actually need a database name to check readiness
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10 # increased retries for slower prod environments
 
   redis:
     image: redis:alpine
