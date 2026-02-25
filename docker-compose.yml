@@ -39,5 +39,26 @@ services:
       - redis
     command: sh -c "npm install -g pnpm@latest && pnpm install --frozen-lockfile && pnpm run start:dev"
 
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    depends_on:
+      - app
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+
 volumes:
   postgres_data:
+  certbot-www:
+  certbot-certs:
