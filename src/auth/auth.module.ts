@@ -15,7 +15,7 @@ export class AuthModule {
           useFactory: (pool: Pool) => {
             return {
               auth: createAuth(pool),
-              disableGlobalAuthGuard: true,
+              disableGlobalAuthGuard: false,
             };
           },
           inject: ['DATABASE_POOL'],

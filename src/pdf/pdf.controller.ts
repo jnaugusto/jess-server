@@ -9,10 +9,12 @@ import {
   Sse,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { Observable } from 'rxjs';
 import { GeneratePdfDto } from './dto/generate-pdf.dto';
 import { PdfService } from './pdf.service';
 
+@AllowAnonymous()
 @ApiTags('pdf')
 @Controller('pdf')
 export class PdfController {

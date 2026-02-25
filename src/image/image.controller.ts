@@ -19,12 +19,14 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import * as express from 'express';
 import { Observable } from 'rxjs';
 import { CompressImageDto } from './dto/compress-image.dto';
 import { UpscaleImageDto } from './dto/upscale-image.dto';
 import { ImageService } from './image.service';
 
+@AllowAnonymous()
 @ApiTags('image')
 @Controller('image')
 export class ImageController {
