@@ -4,14 +4,14 @@
 replication:
   connections:
     - type: postgresql
-      uri: postgresql://jnaugusto:a@_Test1234@db:5432/jess_db
+      uri: postgresql://jnaugusto:jnaugusto1027@db:5432/jess_db
       # SSL settings
       sslmode: disable
 
 # Connection settings for bucket storage (using Postgres instead of MongoDB)
 storage:
   type: postgresql
-  uri: postgresql://jnaugusto:a@_Test1234@db:5432/powersync_storage
+  uri: postgresql://jnaugusto:jnaugusto1027@db:5432/powersync_storage
   sslmode: disable
 
 # The port which the PowerSync API server will listen on

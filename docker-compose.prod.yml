@@ -4,7 +4,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: jnaugusto
-      POSTGRES_PASSWORD: a@_Test1234
+      POSTGRES_PASSWORD: jnaugusto1027
       POSTGRES_DB: jess_db
       POSTGRES_HOST_AUTH_METHOD: md5
       POSTGRES_INITDB_ARGS: "--auth-host=md5"
@@ -18,7 +18,7 @@ services:
     command: ["postgres", "-c", "wal_level=logical", "-c", "password_encryption=md5"]
     healthcheck:
       # Simplified healthcheck - pg_isready doesn't actually need a database name to check readiness
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U jnaugusto"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -80,6 +80,7 @@ services:
       - certbot-certs:/etc/letsencrypt
     depends_on:
       - app
+      - powersync
 
   certbot:
     image: certbot/certbot

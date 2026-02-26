@@ -8,7 +8,7 @@ export default async function () {
   const container = await new PostgreSqlContainer('postgres:17-alpine')
     .withDatabase('jess_db_test')
     .withUsername('jnaugusto')
-    .withPassword('a@_Test1234')
+    .withPassword('jnaugusto1027')
     .start();
 
   process.env.DATABASE_URL = container.getConnectionUri();
