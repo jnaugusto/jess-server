@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import * as jose from 'jose';
-import { PoolClient } from 'pg';
+import { sql } from 'drizzle-orm';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database/schema';
 import { DatabaseService } from '../database/database.service';
 import { env } from '../env';
 
@@ -39,7 +41,7 @@ export class PowerSyncService {
   async handleUpload(userId: string, transaction: PowerSyncTransaction) {
     const ops = transaction.ops;
 
-    await this.databaseService.transaction(async (client: PoolClient) => {
+    await this.databaseService.transaction(async (tx) => {
       for (const op of ops) {
         const { table, op: operation, row } = op;
 
@@ -49,50 +51,73 @@ export class PowerSyncService {
 
         switch (operation) {
           case 'PUT':
-            await this.handlePut(client, table, row);
+            await this.handlePut(tx, table, row);
             break;
           case 'PATCH':
-            await this.handlePatch(client, table, row);
+            await this.handlePatch(tx, table, row);
             break;
           case 'DELETE':
-            await this.handleDelete(client, table, row);
+            await this.handleDelete(tx, table, row);
             break;
         }
       }
     });
   }
 
-  private async handlePut(client: PoolClient, table: string, row: Record<string, any>) {
+  private async handlePut(
+    tx: NodePgDatabase<typeof schema>,
+    table: string,
+    row: Record<string, any>,
+  ) {
     const columns = Object.keys(row);
     const values = Object.values(row);
-    const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
-    const updates = columns.map((col) => `${col} = EXCLUDED.${col}`).join(', ');
 
-    const query = `
-      INSERT INTO ${table} (${columns.join(', ')})
-      VALUES (${placeholders})
-      ON CONFLICT (id) DO UPDATE SET ${updates}
+    const query = sql`
+      INSERT INTO ${sql.identifier(table)} (${sql.join(
+        columns.map((c) => sql.identifier(c)),
+        sql`, `,
+      )})
+      VALUES (${sql.join(
+        values.map((v) => sql`${v}`),
+        sql`, `,
+      )})
+      ON CONFLICT (id) DO UPDATE SET ${sql.join(
+        columns.map((col) => sql`${sql.identifier(col)} = EXCLUDED.${sql.identifier(col)}`),
+        sql`, `,
+      )}
     `;
 
-    await client.query(query, values);
+    await tx.execute(query);
   }
 
-  private async handlePatch(client: PoolClient, table: string, row: Record<string, any>) {
+  private async handlePatch(
+    tx: NodePgDatabase<typeof schema>,
+    table: string,
+    row: Record<string, any>,
+  ) {
     const { id, ...updates } = row;
     const columns = Object.keys(updates);
     const values = Object.values(updates);
-    const setClause = columns.map((col, i) => `${col} = $${String(i + 2)}`).join(', ');
 
-    const query = `
-      UPDATE ${table} SET ${setClause} WHERE id = $1
+    const query = sql`
+      UPDATE ${sql.identifier(table)}
+      SET ${sql.join(
+        columns.map((col, i) => sql`${sql.identifier(col)} = ${values[i]}`),
+        sql`, `,
+      )}
+      WHERE id = ${id}
     `;
 
-    await client.query(query, [id, ...values]);
+    await tx.execute(query);
   }
 
-  private async handleDelete(client: PoolClient, table: string, row: Record<string, any>) {
+  private async handleDelete(
+    tx: NodePgDatabase<typeof schema>,
+    table: string,
+    row: Record<string, any>,
+  ) {
     const { id } = row;
-    const query = `DELETE FROM ${table} WHERE id = $1`;
-    await client.query(query, [id]);
+    const query = sql`DELETE FROM ${sql.identifier(table)} WHERE id = ${id}`;
+    await tx.execute(query);
   }
 }

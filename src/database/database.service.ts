@@ -1,9 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import * as schema from './schema';
 
 @Injectable()
 export class DatabaseService {
-  constructor(@Inject('DATABASE_POOL') private readonly pool: Pool) {}
+  public readonly db: NodePgDatabase<typeof schema>;
+
+  constructor(@Inject('DATABASE_POOL') private readonly pool: Pool) {
+    this.db = drizzle(this.pool, { schema });
+  }
 
   async query(text: string, params?: any[]) {
     return this.pool.query(text, params);
@@ -17,18 +23,7 @@ export class DatabaseService {
     await this.pool.end();
   }
 
-  async transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
-    const client = await this.getClient();
-    try {
-      await client.query('BEGIN');
-      const result = await callback(client);
-      await client.query('COMMIT');
-      return result;
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+  async transaction<T>(callback: (tx: NodePgDatabase<typeof schema>) => Promise<T>): Promise<T> {
+    return await this.db.transaction(callback);
   }
 }

@@ -1,8 +1,8 @@
 import { DynamicModule, Global, Module } from '@nestjs/common';
 import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
-import { Pool } from 'pg';
+import { DatabaseModule } from '../database/database.module';
+import { DatabaseService } from '../database/database.service';
 import { createAuth } from './auth';
-import { AuthController } from './auth.controller';
 
 @Global()
 @Module({})
@@ -12,16 +12,18 @@ export class AuthModule {
       module: AuthModule,
       imports: [
         BetterAuthModule.forRootAsync({
-          useFactory: (pool: Pool) => {
+          isGlobal: true,
+          disableGlobalAuthGuard: false, // We'll use decorators to protect routes
+          imports: [DatabaseModule],
+          inject: [DatabaseService],
+          useFactory: (databaseService: DatabaseService) => {
             return {
-              auth: createAuth(pool),
-              disableGlobalAuthGuard: false,
+              auth: createAuth(databaseService.db),
             };
           },
-          inject: ['DATABASE_POOL'],
         }),
       ],
-      controllers: [AuthController],
+      controllers: [],
       exports: [BetterAuthModule],
     };
   }

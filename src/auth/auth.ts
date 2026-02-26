@@ -1,20 +1,35 @@
 import { betterAuth } from 'better-auth';
+import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { bearer } from 'better-auth/plugins';
-import { Pool } from 'pg';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../database/schema';
 import { env } from '../env';
 
-// We'll create a standalone pool for the auth config if needed,
-// or export a function that takes a pool.
-export const createAuth = (pool: Pool) =>
+export const createAuth = (db: NodePgDatabase<typeof schema>) =>
   betterAuth({
-    database: pool,
+    database: drizzleAdapter(db, {
+      provider: 'pg',
+      schema: {
+        user: schema.users,
+        session: schema.sessions,
+        account: schema.accounts,
+        verification: schema.verifications,
+      },
+    }),
     emailAndPassword: {
       enabled: true,
       autoSignIn: true,
     },
+    trustedOrigins: [
+      'https://api.jnaugusto.com',
+      'capacitor://localhost',
+      'http://localhost',
+      'http://localhost:3000',
+    ],
     plugins: [bearer()],
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    basePath: '/auth',
   });
 
 export type Auth = ReturnType<typeof createAuth>;

@@ -12,6 +12,7 @@ import { ImageModule } from './image/image.module';
 import { PdfModule } from './pdf/pdf.module';
 import { PowerSyncModule } from './powersync/powersync.module';
 import { TemplateModule } from './template/template.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -32,7 +33,9 @@ import { TemplateModule } from './template/template.module';
     DatabaseModule,
     PowerSyncModule,
     AuthModule.register(),
+    UsersModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })

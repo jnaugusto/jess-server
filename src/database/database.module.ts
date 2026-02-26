@@ -1,4 +1,4 @@
-import { Global, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Global, Inject, Logger, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 import { env } from '../env';
 import { DatabaseService } from './database.service';
@@ -19,14 +19,18 @@ import { DatabaseService } from './database.service';
   exports: [DatabaseService, 'DATABASE_POOL'],
 })
 export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
-  constructor(private databaseService: DatabaseService) {}
+  private readonly logger = new Logger(DatabaseModule.name);
+
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
   async onModuleInit() {
     try {
       await this.databaseService.query('SELECT 1');
-      console.log('Database connected successfully');
+      this.logger.log('Database connected successfully');
     } catch (e) {
-      console.error('Failed to connect to database:', e);
+      this.logger.error(
+        `Failed to connect to database: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   }
 
