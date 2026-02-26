@@ -52,10 +52,10 @@ COPY --from=builder /app/dist ./dist
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=8080
+ENV PORT=3005
 
 # Expose port
-EXPOSE 8080
+EXPOSE 3005
 
 # Command to run the application
 CMD ["node", "dist/main"]

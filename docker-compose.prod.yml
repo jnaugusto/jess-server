@@ -46,9 +46,6 @@ services:
   app:
     build: .
     working_dir: /app
-    volumes:
-      - .:/app
-      - /app/node_modules # Preserve node_modules inside container
     ports:
       - "3005:3005"
     environment:
@@ -64,10 +61,12 @@ services:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}
     depends_on:
-      - db
-      - redis
-      - powersync
-    command: sh -c "pnpm run start:prod"
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      powersync:
+        condition: service_started
 
   nginx:
     image: nginx:alpine
