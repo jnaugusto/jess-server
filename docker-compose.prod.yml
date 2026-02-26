@@ -6,8 +6,8 @@ services:
       POSTGRES_USER: jnaugusto
       POSTGRES_PASSWORD: jnaugusto1027
       POSTGRES_DB: jess_db
-      POSTGRES_HOST_AUTH_METHOD: md5
-      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+      # POSTGRES_HOST_AUTH_METHOD: md5
+      # POSTGRES_INITDB_ARGS: "--auth-host=md5"
     ports:
       - "5432:5432"
     volumes:
@@ -15,7 +15,7 @@ services:
       - ./init-powersync-db.sh:/docker-entrypoint-initdb.d/00-init-powersync-db.sh
       - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql
     # Enable logical replication for PowerSync WAL tracking + md5 for pgwire compatibility
-    command: ["postgres", "-c", "wal_level=logical", "-c", "password_encryption=md5"]
+    command: ["postgres", "-c", "wal_level=logical"]
     healthcheck:
       # Simplified healthcheck - pg_isready doesn't actually need a database name to check readiness
       test: ["CMD-SHELL", "pg_isready -U jnaugusto"]
