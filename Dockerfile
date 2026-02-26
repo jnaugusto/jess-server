@@ -18,7 +18,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 
 # Build the application
-RUN pnpm run build
+RUN pnpm run build && test -f dist/main.js || (echo "ERROR: dist/main.js not found after build!" && exit 1)
 
 # Production stage
 FROM node:22-slim AS runner
