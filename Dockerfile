@@ -1,24 +1,26 @@
 # Build stage
 FROM node:22-slim AS builder
 
-# Install pnpm
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
 WORKDIR /app
 
-# Copy configuration files
+# Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
+# Install ALL dependencies including devDeps (needed for nest build)
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy source
 COPY . .
 
-# Build the application
-RUN pnpm run build && test -f dist/main.js || (echo "ERROR: dist/main.js not found after build!" && exit 1)
+# Build and verify output exists
+RUN pnpm run build && \
+    echo "Build output:" && \
+    find dist -name "*.js" | head -10 && \
+    test -f dist/main.js || (echo "ERROR: dist/main.js not found!" && exit 1)
 
 # Production stage
 FROM node:22-slim AS runner
@@ -34,28 +36,27 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install pnpm directly
+# Use corepack consistently (same as builder)
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN npm install -g pnpm@latest
+RUN corepack enable
 
-# Install production dependencies
+# Copy package files and install prod only deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
-# Install Playwright browsers and dependencies
-# Use the default path /root/.cache/ms-playwright
+# Install Playwright browsers
 RUN npx playwright install --with-deps chromium
 
-# Copy built assets from builder
+# Copy built output from builder
 COPY --from=builder /app/dist ./dist
 
-# Set environment variables
+# Copy template assets if needed at runtime
+COPY --from=builder /app/src/template/templates ./dist/template/templates
+
 ENV NODE_ENV=production
 ENV PORT=3005
 
-# Expose port
 EXPOSE 3005
 
-# Command to run the application
 CMD ["node", "dist/main"]
