@@ -50,12 +50,12 @@ services:
       - "3005:3005"
     environment:
       - CI=true
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV}
       - NODE_OPTIONS=--experimental-require-module
-      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/jess_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - PORT=3005
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - PORT=${PORT}
       - POWERSYNC_URL=${POWERSYNC_URL}
       - POWERSYNC_JWT_PRIVATE_KEY=${POWERSYNC_JWT_PRIVATE_KEY}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}

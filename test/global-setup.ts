@@ -7,8 +7,8 @@ declare global {
 export default async function () {
   const container = await new PostgreSqlContainer('postgres:17-alpine')
     .withDatabase('jess_db_test')
-    .withUsername('postgres')
-    .withPassword('postgrespassword')
+    .withUsername('jnaugusto')
+    .withPassword('a@_Test1234')
     .start();
 
   process.env.DATABASE_URL = container.getConnectionUri();
