@@ -3,8 +3,8 @@ services:
     image: postgres:17-alpine
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_USER: jnaugusto
+      POSTGRES_PASSWORD: a@_Test1234
       POSTGRES_DB: jess_db
       POSTGRES_HOST_AUTH_METHOD: md5
       POSTGRES_INITDB_ARGS: "--auth-host=md5"
@@ -53,18 +53,21 @@ services:
       - "3005:3005"
     environment:
       - CI=true
-      - NODE_ENV=development
+      - NODE_ENV=production
       - NODE_OPTIONS=--experimental-require-module
       - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/jess_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - PORT=3005
-      - POWERSYNC_URL=http://powersync:8080
+      - POWERSYNC_URL=${POWERSYNC_URL}
+      - POWERSYNC_JWT_PRIVATE_KEY=${POWERSYNC_JWT_PRIVATE_KEY}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
     depends_on:
       - db
       - redis
       - powersync
-    command: sh -c "npm install -g pnpm@latest && pnpm install --frozen-lockfile && pnpm run start:dev"
+    command: sh -c "pnpm run start:prod"
 
   nginx:
     image: nginx:alpine
