@@ -9,10 +9,6 @@ import { env } from './env';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api', {
-    exclude: ['health'],
-  });
-
   const config = new DocumentBuilder()
     .setTitle('Jess Server API')
     .setDescription('The Jess Server API description')
