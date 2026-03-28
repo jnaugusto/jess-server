@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(brew install:*)",
+      "Bash(gcloud compute:*)",
+      "Bash(code:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

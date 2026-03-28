@@ -28,6 +28,7 @@ async function bootstrap() {
       'https://api.jnaugusto.com',
       'capacitor://localhost',
       'http://localhost',
+      'https://localhost', // Capacitor on Android (new bridge uses HTTPS)
     ],
     credentials: true,
   });
