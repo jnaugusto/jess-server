@@ -25,6 +25,7 @@ export const createAuth = (db: NodePgDatabase<typeof schema>) =>
       'capacitor://localhost',
       'http://localhost',
       'http://localhost:3000',
+      'http://localhost:5173',
     ],
     plugins: [bearer()],
     secret: env.BETTER_AUTH_SECRET,

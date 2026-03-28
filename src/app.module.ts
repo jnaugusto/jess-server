@@ -10,6 +10,7 @@ import { DatabaseModule } from './database/database.module';
 import { env } from './env';
 import { ImageModule } from './image/image.module';
 import { PdfModule } from './pdf/pdf.module';
+import { LocationsModule } from './locations/locations.module';
 import { PowerSyncModule } from './powersync/powersync.module';
 import { TemplateModule } from './template/template.module';
 import { UsersModule } from './users/users.module';
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module';
     TemplateModule,
     DatabaseModule,
     PowerSyncModule,
+    LocationsModule,
     AuthModule.register(),
     UsersModule,
   ],

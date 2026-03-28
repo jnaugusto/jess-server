@@ -65,6 +65,23 @@ export type NewAccount = InferInsertModel<typeof accounts>;
 export type Verification = InferSelectModel<typeof verifications>;
 export type NewVerification = InferInsertModel<typeof verifications>;
 
+export const locations = pgTable('locations', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  deviceId: text('device_id').notNull(),
+  latitude: text('latitude').notNull(),
+  longitude: text('longitude').notNull(),
+  accuracy: text('accuracy').notNull(),
+  speed: text('speed').notNull(),
+  timestamp: text('timestamp').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type Location = InferSelectModel<typeof locations>;
+export type NewLocation = InferInsertModel<typeof locations>;
+
 // Zod Schemas
 export const selectUserSchema = createSelectSchema(users);
 export const insertUserSchema = createInsertSchema(users);

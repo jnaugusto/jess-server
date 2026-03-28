@@ -24,6 +24,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3000',
+      'http://localhost:5173',
       'https://api.jnaugusto.com',
       'capacitor://localhost',
       'http://localhost',
