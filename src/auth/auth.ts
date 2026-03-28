@@ -24,6 +24,7 @@ export const createAuth = (db: NodePgDatabase<typeof schema>) =>
       'https://api.jnaugusto.com',
       'capacitor://localhost',
       'http://localhost',
+      'https://localhost', // Capacitor on Android (new bridge uses HTTPS)
       'http://localhost:3000',
       'http://localhost:5173',
     ],
