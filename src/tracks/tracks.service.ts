@@ -15,7 +15,7 @@ export class TracksService {
       .orderBy(desc(tracks.startTime));
   }
 
-  async getPoints(userId: string, trackId: string) {
+  async getPoints(_userId: string, trackId: string) {
     return this.db.db
       .select()
       .from(locationPoints)
