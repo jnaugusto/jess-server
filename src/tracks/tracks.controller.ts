@@ -17,6 +17,12 @@ export class TracksController {
     return this.tracksService.getTracks(session.user.id);
   }
 
+  @Get('with-points')
+  @ApiOperation({ summary: 'Get all tracks with their location points in a single query' })
+  getTracksWithPoints(@Session() session: UserSession) {
+    return this.tracksService.getTracksWithPoints(session.user.id);
+  }
+
   @Get(':trackId/points')
   @ApiOperation({ summary: 'Get location points for a track' })
   getPoints(@Session() session: UserSession, @Param('trackId') trackId: string) {

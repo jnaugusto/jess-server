@@ -15,6 +15,43 @@ export class TracksService {
       .orderBy(desc(tracks.startTime));
   }
 
+  async getTracksWithPoints(userId: string) {
+    const allTracks = await this.db.db
+      .select()
+      .from(tracks)
+      .where(eq(tracks.userId, userId))
+      .orderBy(desc(tracks.startTime));
+
+    if (!allTracks.length) return [];
+
+    const allPoints = await this.db.db
+      .select({
+        trackId: locationPoints.trackId,
+        latitude: locationPoints.latitude,
+        longitude: locationPoints.longitude,
+        timestamp: locationPoints.timestamp,
+      })
+      .from(locationPoints)
+      .where(eq(locationPoints.userId, userId))
+      .orderBy(locationPoints.timestamp);
+
+    const pointsByTrack = new Map<string, { latitude: number; longitude: number; timestamp: number }[]>();
+    for (const point of allPoints) {
+      if (!pointsByTrack.has(point.trackId))
+        pointsByTrack.set(point.trackId, []);
+      pointsByTrack.get(point.trackId)!.push({
+        latitude: point.latitude,
+        longitude: point.longitude,
+        timestamp: point.timestamp,
+      });
+    }
+
+    return allTracks.map(track => ({
+      ...track,
+      points: pointsByTrack.get(track.id) ?? [],
+    }));
+  }
+
   async getPoints(_userId: string, trackId: string) {
     return this.db.db
       .select()
