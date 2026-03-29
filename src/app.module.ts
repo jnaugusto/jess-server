@@ -12,6 +12,7 @@ import { ImageModule } from './image/image.module';
 import { PdfModule } from './pdf/pdf.module';
 import { LocationsModule } from './locations/locations.module';
 import { PowerSyncModule } from './powersync/powersync.module';
+import { TracksModule } from './tracks/tracks.module';
 import { TemplateModule } from './template/template.module';
 import { UsersModule } from './users/users.module';
 
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module';
     DatabaseModule,
     PowerSyncModule,
     LocationsModule,
+    TracksModule,
     AuthModule.register(),
     UsersModule,
   ],

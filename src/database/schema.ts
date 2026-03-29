@@ -1,5 +1,5 @@
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
-import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, doublePrecision, bigint, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 
 export const users = pgTable('users', {
@@ -81,6 +81,32 @@ export const locations = pgTable('locations', {
 
 export type Location = InferSelectModel<typeof locations>;
 export type NewLocation = InferInsertModel<typeof locations>;
+
+export const tracks = pgTable('tracks', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  startTime: bigint('start_time', { mode: 'number' }).notNull(),
+  endTime: bigint('end_time', { mode: 'number' }).notNull(),
+  distance: doublePrecision('distance').notNull(),
+  avgSpeed: doublePrecision('avg_speed').notNull(),
+});
+
+export const locationPoints = pgTable('location_points', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  trackId: text('track_id').notNull().references(() => tracks.id),
+  latitude: doublePrecision('latitude').notNull(),
+  longitude: doublePrecision('longitude').notNull(),
+  accuracy: doublePrecision('accuracy').notNull(),
+  altitude: doublePrecision('altitude'),
+  speed: doublePrecision('speed'),
+  heading: doublePrecision('heading'),
+  timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
+});
+
+export type Track = InferSelectModel<typeof tracks>;
+export type LocationPoint = InferSelectModel<typeof locationPoints>;
 
 // Zod Schemas
 export const selectUserSchema = createSelectSchema(users);
