@@ -23,6 +23,12 @@ export class TracksController {
     return this.tracksService.getTracksWithPoints(session.user.id);
   }
 
+  @Get(':trackId/detail')
+  @ApiOperation({ summary: 'Get a single track with all its points' })
+  getTrackWithPoints(@Session() session: UserSession, @Param('trackId') trackId: string) {
+    return this.tracksService.getTrackWithPoints(session.user.id, trackId);
+  }
+
   @Get(':trackId/points')
   @ApiOperation({ summary: 'Get location points for a track' })
   getPoints(@Session() session: UserSession, @Param('trackId') trackId: string) {

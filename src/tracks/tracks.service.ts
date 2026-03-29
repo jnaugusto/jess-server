@@ -52,6 +52,30 @@ export class TracksService {
     }));
   }
 
+  async getTrackWithPoints(userId: string, trackId: string) {
+    const [track] = await this.db.db
+      .select()
+      .from(tracks)
+      .where(eq(tracks.id, trackId))
+      .limit(1);
+
+    if (!track || track.userId !== userId) return null;
+
+    const points = await this.db.db
+      .select({
+        latitude: locationPoints.latitude,
+        longitude: locationPoints.longitude,
+        timestamp: locationPoints.timestamp,
+        speed: locationPoints.speed,
+        altitude: locationPoints.altitude,
+      })
+      .from(locationPoints)
+      .where(eq(locationPoints.trackId, trackId))
+      .orderBy(locationPoints.timestamp);
+
+    return { ...track, points };
+  }
+
   async getPoints(_userId: string, trackId: string) {
     return this.db.db
       .select()
