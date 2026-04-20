@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { eq, desc } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { tracks, locationPoints } from '../database/schema';
@@ -59,7 +59,7 @@ export class TracksService {
       .where(eq(tracks.id, trackId))
       .limit(1);
 
-    if (!track || track.userId !== userId) return null;
+    if (!track || track.userId !== userId) throw new NotFoundException(`Track ${trackId} not found.`);
 
     const points = await this.db.db
       .select({

@@ -2,20 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { and, between, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { locations } from '../database/schema';
+import { GetLocationsDto } from './dto/get-locations.dto';
 
 @Injectable()
 export class LocationsService {
   constructor(private readonly db: DatabaseService) {}
 
-  async getLocations(userId: string, deviceId: string, from: number, to: number) {
+  async getLocations(userId: string, dto: GetLocationsDto) {
     return this.db.db
       .select()
       .from(locations)
       .where(
         and(
           eq(locations.userId, userId),
-          eq(locations.deviceId, deviceId),
-          between(locations.timestamp, String(from), String(to)),
+          eq(locations.deviceId, dto.deviceId),
+          between(locations.timestamp, String(dto.from), String(dto.to)),
         ),
       )
       .orderBy(locations.timestamp);
