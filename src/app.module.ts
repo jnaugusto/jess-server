@@ -15,6 +15,8 @@ import { PowerSyncModule } from './powersync/powersync.module';
 import { TracksModule } from './tracks/tracks.module';
 import { TemplateModule } from './template/template.module';
 import { UsersModule } from './users/users.module';
+import { AnalyzeSiteModule } from './analyze-site/analyze-site.module';
+import { DriveModule } from './drive/drive.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { UsersModule } from './users/users.module';
     TracksModule,
     AuthModule.register(),
     UsersModule,
+    AnalyzeSiteModule,
+    DriveModule,
   ],
 
   controllers: [AppController],

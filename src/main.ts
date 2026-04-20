@@ -1,4 +1,5 @@
-import { HttpAdapterHost, NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import { HttpAdapterHost, NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import '@total-typescript/ts-reset';
 import { AppModule } from './app.module';
@@ -33,7 +34,8 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+  app.useGlobalInterceptors(new TransformInterceptor(app.get(Reflector)));
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
   app.enableShutdownHooks();
 
