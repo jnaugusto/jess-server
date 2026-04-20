@@ -1,6 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Queue } from 'bullmq';
+import * as fsPromises from 'fs/promises';
+import { join } from 'path';
 import { Observable } from 'rxjs';
 import { QueueService } from '../common/services/queue.service';
 import { GeneratePdfDto } from './dto/generate-pdf.dto';
@@ -15,11 +17,13 @@ export class PdfService {
 
   async generatePdf(generatePdfDto: GeneratePdfDto): Promise<{ jobId: string }> {
     try {
-      const { address, pageCount } = generatePdfDto;
+      const { address, pageCount, templateType, url } = generatePdfDto;
 
       const job = await this.pdfQueue.add('generate', {
         address,
         pageCount,
+        templateType,
+        url,
       });
 
       return { jobId: String(job.id) };
@@ -36,5 +40,14 @@ export class PdfService {
 
   getJobProgressStream(jobId: string): Observable<{ data: object }> {
     return this.queueService.getJobProgressStream(this.pdfQueue, jobId, 25);
+  }
+
+  async getDownloadStream(jobId: string): Promise<Buffer> {
+    const filePath = join(process.cwd(), 'generated', `${jobId}.pdf`);
+    try {
+      return await fsPromises.readFile(filePath);
+    } catch {
+      throw new NotFoundException(`PDF for job ${jobId} not found or not yet ready.`);
+    }
   }
 }

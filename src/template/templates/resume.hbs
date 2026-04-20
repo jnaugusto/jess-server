@@ -1,0 +1,499 @@
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #d0d0d0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ──────────────────────────────────────────
+     A4 wrapper — exactly one page
+  ────────────────────────────────────────── */
+  .cv {
+    width: 210mm;
+    height: 297mm;
+    display: grid;
+    grid-template-columns: 68mm 1fr;
+    overflow: hidden;
+    background: #ffffff;
+    margin: 0 auto;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #1a1a2e;
+  }
+
+  /* ══════════════════════════════════════════
+     SIDEBAR
+  ══════════════════════════════════════════ */
+  .sidebar {
+    background: #12122a;
+    color: #b8c4d4;
+    padding: 36px 20px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* Name + role */
+  .s-name {
+    font-size: 21px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    margin-bottom: 5px;
+  }
+  .s-role {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: #e8580a;
+    margin-bottom: 22px;
+  }
+
+  /* Section labels */
+  .s-label {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: #e8580a;
+    margin-bottom: 8px;
+    margin-top: 18px;
+  }
+  .s-label:first-of-type { margin-top: 0; }
+
+  .s-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    margin: 16px 0 0;
+  }
+
+  /* Contact list */
+  .s-contact {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .s-contact li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 10.5px;
+    color: #8a9ab2;
+    line-height: 1.4;
+  }
+  .s-contact li .ico {
+    color: #e8580a;
+    font-size: 10px;
+    flex-shrink: 0;
+    width: 13px;
+    text-align: center;
+    margin-top: 1px;
+  }
+
+  /* Skill groups */
+  .s-skill-group { margin-bottom: 9px; }
+  .s-skill-group-label {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.32);
+    margin-bottom: 4px;
+  }
+  .s-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+  .s-tag {
+    font-size: 9.5px;
+    font-weight: 500;
+    background: rgba(232,88,10,0.13);
+    color: #f09060;
+    border: 1px solid rgba(232,88,10,0.25);
+    border-radius: 3px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+
+  /* Education */
+  .s-edu-degree {
+    font-size: 11px;
+    font-weight: 600;
+    color: #dde4f0;
+    line-height: 1.3;
+    margin-bottom: 2px;
+  }
+  .s-edu-school {
+    font-size: 10px;
+    color: #6a7a8e;
+    margin-bottom: 1px;
+  }
+  .s-edu-year {
+    font-size: 9.5px;
+    color: #3e4e62;
+  }
+
+  /* Languages */
+  .s-lang {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  .s-lang-name {
+    font-size: 10.5px;
+    color: #8a9ab2;
+  }
+  .s-lang-dots {
+    display: flex;
+    gap: 3px;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(232,88,10,0.25);
+  }
+  .dot.filled { background: #e8580a; }
+
+  /* ══════════════════════════════════════════
+     MAIN
+  ══════════════════════════════════════════ */
+  .main {
+    background: #ffffff;
+    padding: 36px 30px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .m-section { margin-bottom: 18px; }
+  .m-section:last-child { margin-bottom: 0; }
+
+  .m-label {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: #e8580a;
+    padding-bottom: 5px;
+    border-bottom: 1.5px solid #f5ede8;
+    margin-bottom: 10px;
+  }
+
+  /* Profile / summary */
+  .m-summary {
+    font-size: 11.5px;
+    color: #4a5468;
+    line-height: 1.75;
+  }
+
+  /* Experience */
+  .m-job { margin-bottom: 12px; page-break-inside: avoid; }
+  .m-job:last-child { margin-bottom: 0; }
+
+  .m-job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 1px;
+  }
+  .m-job-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #12122a;
+  }
+  .m-job-date {
+    font-size: 10px;
+    color: #b0b8c8;
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .m-job-company {
+    font-size: 10.5px;
+    color: #e8580a;
+    font-weight: 600;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .m-job-company::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #f0ece8;
+  }
+
+  .m-bullets {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .m-bullets li {
+    font-size: 11px;
+    color: #505870;
+    line-height: 1.6;
+    margin-bottom: 1.5px;
+    padding-left: 13px;
+    position: relative;
+  }
+  .m-bullets li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: #e8580a;
+    font-size: 8.5px;
+    top: 3px;
+  }
+
+  /* Projects */
+  .m-project { margin-bottom: 9px; page-break-inside: avoid; }
+  .m-project:last-child { margin-bottom: 0; }
+
+  .m-project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 1px;
+  }
+  .m-project-name {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #12122a;
+  }
+  .m-project-url {
+    font-size: 9.5px;
+    color: #b8c0ce;
+    font-style: italic;
+  }
+  .m-project-stack {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #e8580a;
+    margin-bottom: 2px;
+    opacity: 0.8;
+  }
+  .m-project-desc {
+    font-size: 11px;
+    color: #505870;
+    line-height: 1.6;
+  }
+
+  /* Certifications */
+  .m-certs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .m-cert {
+    font-size: 10px;
+    font-weight: 500;
+    color: #505870;
+    background: #f7f5f2;
+    border: 1px solid #e8e2da;
+    border-radius: 4px;
+    padding: 3px 9px;
+  }
+</style>
+
+<div class="cv">
+
+  <!-- ══ SIDEBAR ══ -->
+  <div class="sidebar">
+
+    <div class="s-name">Jess Noel<br>Augusto</div>
+    <div class="s-role">Full Stack Developer</div>
+
+    <div class="s-label">Contact</div>
+    <ul class="s-contact">
+      <li><span class="ico">✉</span>jnaugusto@email.com</li>
+      <li><span class="ico">☎</span>+61 400 000 000</li>
+      <li><span class="ico">◎</span>Sydney, NSW, Australia</li>
+      <li><span class="ico">⌥</span>github.com/jnaugusto</li>
+      <li><span class="ico">◈</span>jess.dev</li>
+    </ul>
+
+    <div class="s-divider"></div>
+    <div class="s-label">Technical Skills</div>
+
+    <div class="s-skill-group">
+      <div class="s-skill-group-label">Backend</div>
+      <div class="s-tags">
+        <span class="s-tag">NestJS</span>
+        <span class="s-tag">Node.js</span>
+        <span class="s-tag">TypeScript</span>
+        <span class="s-tag">REST APIs</span>
+        <span class="s-tag">BullMQ</span>
+        <span class="s-tag">WebSockets</span>
+      </div>
+    </div>
+
+    <div class="s-skill-group">
+      <div class="s-skill-group-label">Frontend / Mobile</div>
+      <div class="s-tags">
+        <span class="s-tag">React</span>
+        <span class="s-tag">React Native</span>
+        <span class="s-tag">Expo</span>
+        <span class="s-tag">Tailwind CSS</span>
+        <span class="s-tag">shadcn/ui</span>
+      </div>
+    </div>
+
+    <div class="s-skill-group">
+      <div class="s-skill-group-label">Data &amp; Cloud</div>
+      <div class="s-tags">
+        <span class="s-tag">PostgreSQL</span>
+        <span class="s-tag">Redis</span>
+        <span class="s-tag">Drizzle ORM</span>
+        <span class="s-tag">PowerSync</span>
+        <span class="s-tag">AWS</span>
+      </div>
+    </div>
+
+    <div class="s-skill-group">
+      <div class="s-skill-group-label">DevOps &amp; Tooling</div>
+      <div class="s-tags">
+        <span class="s-tag">Docker</span>
+        <span class="s-tag">Playwright</span>
+        <span class="s-tag">Swagger</span>
+        <span class="s-tag">Git</span>
+        <span class="s-tag">Zod</span>
+      </div>
+    </div>
+
+    <div class="s-divider"></div>
+    <div class="s-label">Education</div>
+    <div class="s-edu-degree">Bachelor of Information Technology</div>
+    <div class="s-edu-school">University of Technology Sydney</div>
+    <div class="s-edu-year">2018 – 2022 &nbsp;·&nbsp; GPA 3.8 / 4.0</div>
+
+    <div class="s-divider"></div>
+    <div class="s-label">Languages</div>
+
+    <div class="s-lang">
+      <span class="s-lang-name">English</span>
+      <div class="s-lang-dots">
+        <span class="dot filled"></span><span class="dot filled"></span>
+        <span class="dot filled"></span><span class="dot filled"></span>
+        <span class="dot filled"></span>
+      </div>
+    </div>
+    <div class="s-lang">
+      <span class="s-lang-name">Filipino</span>
+      <div class="s-lang-dots">
+        <span class="dot filled"></span><span class="dot filled"></span>
+        <span class="dot filled"></span><span class="dot filled"></span>
+        <span class="dot filled"></span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ MAIN ══ -->
+  <div class="main">
+
+    <div class="m-section">
+      <div class="m-label">Profile</div>
+      <p class="m-summary">
+        Full stack developer with 4+ years building and shipping production systems across web and mobile.
+        Specialised in the TypeScript ecosystem — NestJS on the backend, React and React Native on the frontend.
+        Driven by clean architecture, great developer experience, and code that holds up at scale.
+      </p>
+    </div>
+
+    <div class="m-section">
+      <div class="m-label">Experience</div>
+
+      <div class="m-job">
+        <div class="m-job-header">
+          <span class="m-job-title">Senior Full Stack Developer</span>
+          <span class="m-job-date">Jan 2023 – Present</span>
+        </div>
+        <div class="m-job-company">Geourney &nbsp;·&nbsp; Sydney, NSW</div>
+        <ul class="m-bullets">
+          <li>Architected a NestJS API with BullMQ background jobs, Playwright PDF generation (5 templates), and SSE progress streaming.</li>
+          <li>Built an offline-first React Native app (Expo) with PowerSync, enabling GPS tracking without connectivity.</li>
+          <li>Eliminated N+1 queries with compound endpoints — cut average API latency by 40%.</li>
+          <li>Shipped auth across web &amp; native using Better Auth with secure session management.</li>
+        </ul>
+      </div>
+
+      <div class="m-job">
+        <div class="m-job-header">
+          <span class="m-job-title">Full Stack Developer</span>
+          <span class="m-job-date">Jul 2021 – Dec 2022</span>
+        </div>
+        <div class="m-job-company">Freelance &nbsp;·&nbsp; Remote</div>
+        <ul class="m-bullets">
+          <li>Delivered 8+ client products: SaaS dashboards, e-commerce platforms, and internal tooling.</li>
+          <li>Standardised REST response shapes and global exception handling across client APIs.</li>
+          <li>Mentored two junior developers through code review and regular pair-programming.</li>
+        </ul>
+      </div>
+
+      <div class="m-job">
+        <div class="m-job-header">
+          <span class="m-job-title">Junior Developer</span>
+          <span class="m-job-date">Feb 2020 – Jun 2021</span>
+        </div>
+        <div class="m-job-company">TechStart Agency &nbsp;·&nbsp; Sydney, NSW</div>
+        <ul class="m-bullets">
+          <li>Built React frontends and Node.js REST APIs for 5+ client-facing products.</li>
+          <li>Integrated Stripe, Google Maps, and Twilio APIs into two flagship products.</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="m-section">
+      <div class="m-label">Key Projects</div>
+
+      <div class="m-project">
+        <div class="m-project-header">
+          <span class="m-project-name">Jess Server — Portfolio API</span>
+          <span class="m-project-url">github.com/jnaugusto/jess-server</span>
+        </div>
+        <div class="m-project-stack">NestJS · PostgreSQL · BullMQ · Playwright · PowerSync</div>
+        <div class="m-project-desc">Production REST API: async PDF generation (5 document types), SSE progress streaming, GPS track history, site-to-PDF capture, and full Swagger docs.</div>
+      </div>
+
+      <div class="m-project">
+        <div class="m-project-header">
+          <span class="m-project-name">Geourney Mobile</span>
+        </div>
+        <div class="m-project-stack">React Native · Expo · Drizzle ORM · PowerSync</div>
+        <div class="m-project-desc">Cross-platform GPS tracking app with offline-first architecture. Tracks stored locally with Drizzle ORM and synced to the server via PowerSync.</div>
+      </div>
+
+    </div>
+
+    <div class="m-section">
+      <div class="m-label">Certifications</div>
+      <div class="m-certs">
+        <span class="m-cert">AWS Certified Developer – Associate</span>
+        <span class="m-cert">Meta React Native Specialization</span>
+        <span class="m-cert">Google Associate Cloud Engineer</span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
