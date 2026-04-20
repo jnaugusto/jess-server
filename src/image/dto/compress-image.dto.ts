@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class CompressImageDto {
   @ApiProperty({
@@ -16,4 +16,14 @@ export class CompressImageDto {
   @Min(1)
   @Max(100)
   quality?: number = 80;
+
+  @ApiProperty({
+    description: 'Output format',
+    default: 'webp',
+    required: false,
+    enum: ['webp', 'jpeg', 'png'],
+  })
+  @IsOptional()
+  @IsIn(['webp', 'jpeg', 'png'])
+  format?: 'webp' | 'jpeg' | 'png' = 'webp';
 }

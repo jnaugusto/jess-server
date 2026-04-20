@@ -43,12 +43,35 @@ export class ImageService {
     return this.queueService.getJobProgressStream(this.imageQueue, jobId, 25);
   }
 
-  async compressImage(file: Express.Multer.File, quality = 80): Promise<Buffer> {
+  async compressImage(
+    file: Express.Multer.File,
+    quality = 80,
+    format: 'webp' | 'jpeg' | 'png' = 'webp',
+  ): Promise<{ buffer: Buffer; mimeType: string; ext: string }> {
     try {
-      return await sharp(file.buffer)
-        .resize({ width: 1200, withoutEnlargement: true })
-        .webp({ quality })
-        .toBuffer();
+      const image = sharp(file.buffer).resize({ width: 1200, withoutEnlargement: true });
+
+      let buffer: Buffer;
+      let mimeType: string;
+      let ext: string;
+
+      if (format === 'jpeg') {
+        buffer = await image.jpeg({ quality, mozjpeg: true }).toBuffer();
+        mimeType = 'image/jpeg';
+        ext = 'jpg';
+      } else if (format === 'png') {
+        // PNG quality maps to compressionLevel (0-9); convert 1-100 → 9-0
+        const compressionLevel = Math.round(9 - (quality / 100) * 9);
+        buffer = await image.png({ compressionLevel }).toBuffer();
+        mimeType = 'image/png';
+        ext = 'png';
+      } else {
+        buffer = await image.webp({ quality }).toBuffer();
+        mimeType = 'image/webp';
+        ext = 'webp';
+      }
+
+      return { buffer, mimeType, ext };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error during compression';
       throw new InternalServerErrorException(`Failed to compress image: ${message}`);

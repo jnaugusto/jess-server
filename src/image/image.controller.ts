@@ -4,7 +4,6 @@ import {
   Controller,
   FileTypeValidator,
   Get,
-  Header,
   InternalServerErrorException,
   MaxFileSizeValidator,
   MessageEvent,
@@ -30,6 +29,11 @@ import { ImageService } from './image.service';
 @ApiTags('image')
 @Controller('image')
 export class ImageController {
+  private static readonly ALLOWED_FORMATS = ['webp', 'jpeg', 'png'] as const;
+  private static toFormat(value: unknown): 'webp' | 'jpeg' | 'png' {
+    return ImageController.ALLOWED_FORMATS.find((f) => f === value) ?? 'webp';
+  }
+
   constructor(private readonly imageService: ImageService) {}
 
   private formatBytes(bytes: number, decimals = 2) {
@@ -50,16 +54,9 @@ export class ImageController {
     schema: {
       type: 'object',
       properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-        quality: {
-          type: 'integer',
-          default: 80,
-          minimum: 1,
-          maximum: 100,
-        },
+        file: { type: 'string', format: 'binary' },
+        quality: { type: 'integer', default: 80, minimum: 1, maximum: 100 },
+        format: { type: 'string', default: 'webp', enum: ['webp', 'jpeg', 'png'] },
       },
     },
   })
@@ -68,7 +65,7 @@ export class ImageController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB limit
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
           new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp|gif)$/ }),
         ],
       }),
@@ -77,19 +74,22 @@ export class ImageController {
     @Body() compressImageDto: CompressImageDto,
   ) {
     const quality = compressImageDto.quality ?? 80;
-    const compressedBuffer = await this.imageService.compressImage(file, quality);
+    const format = ImageController.toFormat(compressImageDto.format);
+    const { buffer, mimeType, ext } = await this.imageService.compressImage(file, quality, format);
+    const baseName = file.originalname.replace(/\.[^.]+$/, '');
 
     return {
       success: true,
       originalName: file.originalname,
-      compressedName: `compressed_${file.originalname.split('.')[0]}.webp`,
-      mimeType: 'image/webp',
+      compressedName: `compressed_${baseName}.${ext}`,
+      mimeType,
+      format: ext,
       originalSize: file.size,
       originalSizeHuman: this.formatBytes(file.size),
-      compressedSize: compressedBuffer.length,
-      compressedSizeHuman: this.formatBytes(compressedBuffer.length),
-      compressionRatio: `${((1 - compressedBuffer.length / file.size) * 100).toFixed(2)}%`,
-      base64: `data:image/webp;base64,${compressedBuffer.toString('base64')}`,
+      compressedSize: buffer.length,
+      compressedSizeHuman: this.formatBytes(buffer.length),
+      compressionRatio: `${((1 - buffer.length / file.size) * 100).toFixed(2)}%`,
+      base64: `data:${mimeType};base64,${buffer.toString('base64')}`,
     };
   }
 
@@ -114,12 +114,11 @@ export class ImageController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
-  @Header('Content-Type', 'image/webp')
   async compressAndDownload(
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB limit
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
           new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp|gif)$/ }),
         ],
       }),
@@ -129,16 +128,17 @@ export class ImageController {
     @Res() res: express.Response,
   ) {
     const quality = compressImageDto.quality ?? 80;
-    const compressedBuffer = await this.imageService.compressImage(file, quality);
+    const format = ImageController.toFormat(compressImageDto.format);
+    const { buffer, mimeType, ext } = await this.imageService.compressImage(file, quality, format);
+    const baseName = file.originalname.replace(/\.[^.]+$/, '');
 
     res.set({
-      'Content-Disposition': `attachment; filename="compressed_${
-        file.originalname.split('.')[0]
-      }.webp"`,
-      'Content-Length': compressedBuffer.length,
+      'Content-Type': mimeType,
+      'Content-Disposition': `attachment; filename="compressed_${baseName}.${ext}"`,
+      'Content-Length': buffer.length,
     });
 
-    res.end(compressedBuffer);
+    res.end(buffer);
   }
 
   @Post('upscale')
