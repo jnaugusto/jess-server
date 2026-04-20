@@ -59,3 +59,10 @@ thumbs.db
 # AI models
 *.bin
 *.param
+
+# Generated Pdfs
+/generated
+/test/http/images
+
+# Claude Code local config
+.claude/
