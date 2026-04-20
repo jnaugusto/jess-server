@@ -29,6 +29,11 @@ export const env = createEnv({
       .describe('Base64 encoded private key for PowerSync JWT signing'),
     BETTER_AUTH_SECRET: z.string(),
     BETTER_AUTH_URL: z.url(),
+    CORS_ORIGINS: z
+      .string()
+      .default('http://localhost:5173,http://localhost:5174,http://localhost:4173,http://localhost:3000')
+      .transform((s) => s.split(',').map((o) => o.trim()))
+      .describe('Comma-separated list of allowed CORS origins'),
     ANTHROPIC_API_KEY: z.string().describe('Anthropic API key for Claude'),
     GOOGLE_OAUTH_CLIENT_ID: z.string().describe('Google OAuth2 client ID'),
     GOOGLE_OAUTH_CLIENT_SECRET: z.string().describe('Google OAuth2 client secret'),

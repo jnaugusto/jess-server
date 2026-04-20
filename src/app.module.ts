@@ -2,9 +2,11 @@ import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { ChatModule } from './chat/chat.module';
 import { CommonModule } from './common/common.module';
 import { DatabaseModule } from './database/database.module';
 import { env } from './env';
@@ -20,6 +22,7 @@ import { DriveModule } from './drive/drive.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     BullModule.forRoot({
       connection: {
         host: env.REDIS_HOST,
@@ -42,6 +45,7 @@ import { DriveModule } from './drive/drive.module';
     UsersModule,
     AnalyzeSiteModule,
     DriveModule,
+    ChatModule,
   ],
 
   controllers: [AppController],

@@ -22,15 +22,26 @@ async function bootstrap() {
 
   const httpAdapterHost = app.get(HttpAdapterHost);
 
+  const allowedOrigins = new Set(
+    (
+      process.env.CORS_ORIGINS ??
+      'http://localhost:5173,http://localhost:5174,http://localhost:4173,http://localhost:3000'
+    )
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  );
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'https://api.jnaugusto.com',
-      'capacitor://localhost',
-      'http://localhost',
-      'https://localhost', // Capacitor on Android (new bridge uses HTTPS)
-    ],
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
   });
 
