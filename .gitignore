@@ -1,5 +1,5 @@
 # compiled output
-# /dist — committed for deployment (built locally, copied into Docker image)
+/dist
 /node_modules
 tsconfig.build.tsbuildinfo
 
