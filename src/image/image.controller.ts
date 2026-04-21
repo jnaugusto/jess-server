@@ -73,7 +73,7 @@ export class ImageController {
     file: Express.Multer.File,
     @Body() compressImageDto: CompressImageDto,
   ) {
-    const quality = compressImageDto.quality ?? 80;
+    const quality = parseInt(String(compressImageDto.quality ?? 80), 10);
     const format = ImageController.toFormat(compressImageDto.format);
     const { buffer, mimeType, ext } = await this.imageService.compressImage(file, quality, format);
     const baseName = file.originalname.replace(/\.[^.]+$/, '');
@@ -127,7 +127,7 @@ export class ImageController {
     @Body() compressImageDto: CompressImageDto,
     @Res() res: express.Response,
   ) {
-    const quality = compressImageDto.quality ?? 80;
+    const quality = parseInt(String(compressImageDto.quality ?? 80), 10);
     const format = ImageController.toFormat(compressImageDto.format);
     const { buffer, mimeType, ext } = await this.imageService.compressImage(file, quality, format);
     const baseName = file.originalname.replace(/\.[^.]+$/, '');
