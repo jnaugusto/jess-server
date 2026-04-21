@@ -31,7 +31,7 @@ EXPERIENCE:
    - Managed end-to-end Linux deployment with security hardening
    Tech: NestJS, Laravel, Vue.js, Quasar, Ionic, WordPress, MySQL, MongoDB, Linux
 
-3. Full Stack Developer — Corebridge (March 2017 – April 2017, Contract)
+3. Full Stack Developer — Corebridge (April 2017 – February 2020, Full-time)
    - Built dual-sided eCommerce ecosystem using .NET Core and Angular
    - Optimized CRM using ASP.NET MVC
    - Designed SQL Server schemas and integrated Elasticsearch for search
