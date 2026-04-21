@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+          --radius: 0.65rem;
+          --background: oklch(1 0 0);
+          --foreground: oklch(0.141 0.005 285.823);
+          --card: oklch(1 0 0);
+          --card-foreground: oklch(0.141 0.005 285.823);
+          --popover: oklch(1 0 0);
+          --popover-foreground: oklch(0.141 0.005 285.823);
+          --primary: oklch(0.646 0.222 41.116);
+          --primary-foreground: oklch(0.98 0.016 73.684);
+          --secondary: oklch(0.967 0.001 286.375);
+          --secondary-foreground: oklch(0.21 0.006 285.885);
+          --muted: oklch(0.967 0.001 286.375);
+          --muted-foreground: oklch(0.552 0.016 285.938);
+          --accent: oklch(0.967 0.001 286.375);
+          --accent-foreground: oklch(0.21 0.006 285.885);
+          --destructive: oklch(0.577 0.245 27.325);
+          --border: oklch(0.92 0.004 286.32);
+          --input: oklch(0.92 0.004 286.32);
+          --ring: oklch(0.75 0.183 55.934);
+          --chart-1: oklch(0.837 0.128 66.29);
+          --chart-2: oklch(0.705 0.213 47.604);
+          --chart-3: oklch(0.646 0.222 41.116);
+          --chart-4: oklch(0.553 0.195 38.402);
+          --chart-5: oklch(0.47 0.157 37.304);
+          --sidebar: oklch(0.985 0 0);
+          --sidebar-foreground: oklch(0.141 0.005 285.823);
+          --sidebar-primary: oklch(0.646 0.222 41.116);
+          --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+          --sidebar-accent: oklch(0.967 0.001 286.375);
+          --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+          --sidebar-border: oklch(0.92 0.004 286.32);
+          --sidebar-ring: oklch(0.75 0.183 55.934);
+        }
+
+        .dark {
+          --background: oklch(0.141 0.005 285.823);
+          --foreground: oklch(0.985 0 0);
+          --card: oklch(0.21 0.006 285.885);
+          --card-foreground: oklch(0.985 0 0);
+          --popover: oklch(0.21 0.006 285.885);
+          --popover-foreground: oklch(0.985 0 0);
+          --primary: oklch(0.705 0.213 47.604);
+          --primary-foreground: oklch(0.98 0.016 73.684);
+          --secondary: oklch(0.274 0.006 286.033);
+          --secondary-foreground: oklch(0.985 0 0);
+          --muted: oklch(0.274 0.006 286.033);
+          --muted-foreground: oklch(0.705 0.015 286.067);
+          --accent: oklch(0.274 0.006 286.033);
+          --accent-foreground: oklch(0.985 0 0);
+          --destructive: oklch(0.704 0.191 22.216);
+          --border: oklch(1 0 0 / 10%);
+          --input: oklch(1 0 0 / 15%);
+          --ring: oklch(0.408 0.123 38.172);
+          --chart-1: oklch(0.837 0.128 66.29);
+          --chart-2: oklch(0.705 0.213 47.604);
+          --chart-3: oklch(0.646 0.222 41.116);
+          --chart-4: oklch(0.553 0.195 38.402);
+          --chart-5: oklch(0.47 0.157 37.304);
+          --sidebar: oklch(0.21 0.006 285.885);
+          --sidebar-foreground: oklch(0.985 0 0);
+          --sidebar-primary: oklch(0.705 0.213 47.604);
+          --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+          --sidebar-accent: oklch(0.274 0.006 286.033);
+          --sidebar-accent-foreground: oklch(0.985 0 0);
+          --sidebar-border: oklch(1 0 0 / 10%);
+          --sidebar-ring: oklch(0.408 0.123 38.172);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: var(--foreground);
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 40px 50px;
+            background-color: var(--muted);
+            margin: 0 auto 20px;
+            position: relative;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Header Section */
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+        }
+
+        .company-info h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: oklch(0.21 0.006 285.885);
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+
+        .company-info .subtitle {
+            font-size: 16px;
+            color: var(--primary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .company-info .subtitle::before {
+            content: "→";
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo img {
+            height: 60px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+        }
+
+        .report-meta {
+            background-color: var(--secondary);
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .report-meta .label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--secondary-foreground);
+        }
+
+        .report-meta .value {
+            font-size: 14px;
+            color: var(--muted-foreground);
+        }
+
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            margin-top: 10px;
+        }
+
+        .section-header .icon {
+            color: var(--primary);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .section-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Table Styles */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            /* background-color: var(--card); */
+            border-radius: var(--radius);
+            overflow: hidden;
+            /* box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); */
+        }
+
+        .data-table thead th:first-child {
+          background-color: var(--muted);
+        }
+
+        .data-table thead th:nth-child(2),
+        .data-table tbody tr:first-child td:first-child {
+          border-top-left-radius: var(--radius);
+        }
+
+        .data-table thead th {
+            background-color: oklch(0.21 0.006 285.885);
+            color: var(--primary-foreground);
+            font-weight: 600;
+            font-size: 13px;
+            text-align: right;
+            padding: 14px 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table thead th:first-child {
+            text-align: left;
+        }
+
+        .data-table tbody tr {
+            border-bottom: 1px solid var(--border);
+            background-color: var(--card);
+        }
+
+        .data-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .data-table tbody td {
+            padding: 14px 20px;
+            font-size: 14px;
+            color: var(--foreground);
+            text-align: right;
+        }
+
+        .data-table tbody td:first-child {
+            text-align: left;
+            font-weight: 500;
+            color: var(--muted-foreground);
+        }
+
+        /* Highlight Rows */
+        .highlight-row {
+            background-color: var(--primary) !important;
+            font-weight: 700 !important;
+        }
+
+        .highlight-row td {
+            color: var(--primary-foreground) !important;
+            font-size: 15px !important;
+            padding: 16px 20px !important;
+        }
+
+        /* Total Section */
+        .total-section {
+            margin-top: 30px;
+        }
+
+        .total-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--card);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        .total-table tbody tr {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .total-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .total-table tbody td {
+            padding: 14px 20px;
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .total-table tbody td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: var(--foreground);
+        }
+
+        .total-table .final-total {
+            background-color: var(--primary);
+        }
+
+        .total-table .final-total td {
+            color: var(--primary-foreground);
+            font-weight: 700;
+            font-size: 15px;
+            padding: 16px 20px;
+        }
+
+        .page-number {
+            position: absolute;
+            bottom: 20px;
+            right: 50px;
+            font-size: 12px;
+            color: var(--muted-foreground);
+        }
+
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: white;
+            }
+
+            .page {
+                margin: 0;
+                box-shadow: none;
+                page-break-after: always;
+            }
+
+            .page:last-child {
+                page-break-after: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    {{{body}}}
+</body>
+</html>

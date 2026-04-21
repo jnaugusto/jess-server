@@ -1,0 +1,360 @@
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #d0d0d0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── A4, exactly one page ── */
+  .re-page {
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    background: #ffffff;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    color: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+  }
+
+  /* ── Hero ── */
+  .re-hero {
+    background: linear-gradient(135deg, #12122a 0%, #2a2a50 55%, #e8580a 100%);
+    padding: 24px 40px 20px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .re-hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .re-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    background: #e8580a;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 3px;
+  }
+  .re-price {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .re-address-hero {
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
+  }
+  .re-hero-price-block { text-align: right; }
+  .re-hero-price-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 3px;
+  }
+
+  /* ── Stats bar ── */
+  .re-stats {
+    display: flex;
+    background: #12122a;
+    flex-shrink: 0;
+  }
+  .re-stat {
+    flex: 1;
+    text-align: center;
+    padding: 11px 8px;
+    border-right: 1px solid rgba(255,255,255,0.07);
+  }
+  .re-stat:last-child { border-right: none; }
+  .re-stat-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: #e8580a;
+    display: block;
+    line-height: 1.2;
+  }
+  .re-stat-label {
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 2px;
+    display: block;
+  }
+
+  /* ── Body ── */
+  .re-body {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Left column ── */
+  .re-left {
+    padding: 20px 24px 16px 40px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .re-section-title {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #e8580a;
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #f0ece8;
+    flex-shrink: 0;
+  }
+
+  .re-description {
+    font-size: 11.5px;
+    color: #555;
+    line-height: 1.7;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+
+  .re-features-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+  .re-feature {
+    font-size: 10.5px;
+    color: #444;
+    padding: 5px 10px;
+    background: #fdf8f5;
+    border-radius: 5px;
+    border-left: 2px solid #e8580a;
+    line-height: 1.3;
+  }
+
+  .re-open-home-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #f5f0eb;
+    font-size: 11.5px;
+  }
+  .re-open-home-item:last-child { border-bottom: none; }
+  .re-oh-day { font-weight: 600; color: #1a1a2e; }
+  .re-oh-time { color: #888; }
+
+  /* ── Right column ── */
+  .re-right {
+    background: #fdf8f5;
+    padding: 20px 28px 16px 20px;
+    border-left: 1px solid #f0e8e0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow: hidden;
+  }
+
+  .re-map-placeholder {
+    background: linear-gradient(135deg, #e8e4df 0%, #d8d0c8 100%);
+    border-radius: 6px;
+    height: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 11px;
+    text-align: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .re-map-pin { font-size: 22px; }
+
+  .re-detail-list { list-style: none; padding: 0; margin: 0; flex-shrink: 0; }
+  .re-detail-list li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    padding: 6px 0;
+    border-bottom: 1px solid #ede8e2;
+  }
+  .re-detail-list li:last-child { border-bottom: none; }
+  .re-detail-key { color: #aaa; }
+  .re-detail-val { font-weight: 600; color: #1a1a2e; }
+
+  /* ── Agent card ── */
+  .re-agent {
+    background: #12122a;
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: #fff;
+    margin-top: auto;
+    flex-shrink: 0;
+  }
+  .re-agent-name { font-size: 13px; font-weight: 700; margin-bottom: 1px; }
+  .re-agent-agency { font-size: 10px; color: #e8580a; font-weight: 600; margin-bottom: 10px; }
+  .re-agent-contacts { display: flex; flex-direction: column; gap: 3px; }
+  .re-agent-contact { font-size: 10.5px; color: rgba(255,255,255,0.6); }
+  .re-agent-contact span { color: #fff; font-weight: 500; }
+
+  /* ── Footer ── */
+  .re-footer {
+    padding: 9px 40px;
+    background: #f9f5f0;
+    border-top: 1px solid #ede8e2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: #bbb;
+    flex-shrink: 0;
+  }
+  .re-footer strong { color: #e8580a; }
+</style>
+
+<div class="re-page">
+
+  <!-- Hero -->
+  <div class="re-hero">
+    <div class="re-hero-top">
+      <div>
+        <span class="re-tag">For Sale</span>
+        <div class="re-address-hero" style="margin-top:8px;">{{address}}</div>
+      </div>
+      <div class="re-hero-price-block">
+        <div class="re-hero-price-label">Guide Price</div>
+        <div class="re-price">$2,450,000</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="re-stats">
+    <div class="re-stat">
+      <span class="re-stat-value">4</span>
+      <span class="re-stat-label">Bedrooms</span>
+    </div>
+    <div class="re-stat">
+      <span class="re-stat-value">3</span>
+      <span class="re-stat-label">Bathrooms</span>
+    </div>
+    <div class="re-stat">
+      <span class="re-stat-value">2</span>
+      <span class="re-stat-label">Car Spaces</span>
+    </div>
+    <div class="re-stat">
+      <span class="re-stat-value">612 m²</span>
+      <span class="re-stat-label">Land</span>
+    </div>
+    <div class="re-stat">
+      <span class="re-stat-value">285 m²</span>
+      <span class="re-stat-label">House</span>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="re-body">
+
+    <!-- Left -->
+    <div class="re-left">
+
+      <div class="re-section-title">About this property</div>
+      <p class="re-description">
+        Welcome to this stunning family home positioned in one of Sydney's most sought-after streets.
+        Boasting light-filled interiors, high ceilings, and a seamless indoor-outdoor flow, this property
+        offers the ultimate in contemporary coastal living — just moments from the beach, cafés, and local schools.
+      </p>
+
+      <div class="re-section-title">Property features</div>
+      <div class="re-features-grid">
+        <div class="re-feature">Open-plan kitchen &amp; dining</div>
+        <div class="re-feature">Ducted air conditioning</div>
+        <div class="re-feature">Entertainer's alfresco deck</div>
+        <div class="re-feature">Heated pool &amp; spa</div>
+        <div class="re-feature">Master suite with walk-in robe</div>
+        <div class="re-feature">Double lock-up garage</div>
+        <div class="re-feature">Solar panels (6.6 kW)</div>
+        <div class="re-feature">Secure video intercom</div>
+      </div>
+
+      <div class="re-section-title">Open for inspection</div>
+      <div class="re-open-home-item">
+        <span class="re-oh-day">Saturday</span>
+        <span class="re-oh-time">10:00 AM – 10:30 AM</span>
+      </div>
+      <div class="re-open-home-item">
+        <span class="re-oh-day">Sunday</span>
+        <span class="re-oh-time">11:00 AM – 11:30 AM</span>
+      </div>
+      <div class="re-open-home-item">
+        <span class="re-oh-day">Wednesday</span>
+        <span class="re-oh-time">5:00 PM – 5:30 PM</span>
+      </div>
+
+    </div>
+
+    <!-- Right -->
+    <div class="re-right">
+
+      <div>
+        <div class="re-section-title">Location</div>
+        <div class="re-map-placeholder">
+          <span class="re-map-pin">📍</span>
+          <span>{{address}}</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="re-section-title">Property details</div>
+        <ul class="re-detail-list">
+          <li><span class="re-detail-key">Property type</span><span class="re-detail-val">House</span></li>
+          <li><span class="re-detail-key">Council rates</span><span class="re-detail-val">$1,850/yr</span></li>
+          <li><span class="re-detail-key">Water rates</span><span class="re-detail-val">$900/yr</span></li>
+          <li><span class="re-detail-key">Zoning</span><span class="re-detail-val">R2 Low Density</span></li>
+          <li><span class="re-detail-key">Year built</span><span class="re-detail-val">2018 (renovated 2024)</span></li>
+          <li><span class="re-detail-key">Listed</span><span class="re-detail-val">{{listedDate}}</span></li>
+        </ul>
+      </div>
+
+      <!-- Agent card -->
+      <div class="re-agent">
+        <div class="re-agent-name">Jess Noel Augusto</div>
+        <div class="re-agent-agency">Jess.dev Real Estate</div>
+        <div class="re-agent-contacts">
+          <div class="re-agent-contact">Mobile: <span>0400 000 000</span></div>
+          <div class="re-agent-contact">Email: <span>jnaugusto@email.com</span></div>
+          <div class="re-agent-contact">License: <span>RE-2024-NSW</span></div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="re-footer">
+    <span>Prepared by <strong>Jess.dev Real Estate</strong> · {{listedDate}}</span>
+    <span>Sample document generated by the Jess Server API</span>
+  </div>
+
+</div>

@@ -1,0 +1,20 @@
+import 'dotenv/config';
+export declare const env: Readonly<{
+    PORT: number;
+    NODE_ENV: "development" | "test" | "production";
+    REDIS_HOST: string;
+    REDIS_PORT: number;
+    PLAYWRIGHT_POOL_SIZE: number;
+    PLAYWRIGHT_MAX_PAGES: number;
+    DATABASE_URL: string;
+    POWERSYNC_URL: string;
+    POWERSYNC_JWT_PRIVATE_KEY: string;
+    BETTER_AUTH_SECRET: string;
+    BETTER_AUTH_URL: string;
+    CORS_ORIGINS: string[];
+    ANTHROPIC_API_KEY: string;
+    GOOGLE_OAUTH_CLIENT_ID: string;
+    GOOGLE_OAUTH_CLIENT_SECRET: string;
+    GOOGLE_OAUTH_REFRESH_TOKEN: string;
+    GOOGLE_DRIVE_FOLDER_ID: string;
+}>;
