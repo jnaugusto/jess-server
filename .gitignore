@@ -62,6 +62,9 @@ thumbs.db
 
 # Generated Pdfs
 /generated
+
+# Tesseract language data cache
+/tessdata
 /test/http/images
 
 # Claude Code local config

@@ -1,8 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Queue } from 'bullmq';
+import * as path from 'path';
 import { Observable } from 'rxjs';
 import sharp from 'sharp';
+import Tesseract from 'tesseract.js';
 import { QueueService } from '../common/services/queue.service';
 
 @Injectable()
@@ -41,6 +43,29 @@ export class ImageService {
 
   getJobProgressStream(jobId: string): Observable<{ data: object }> {
     return this.queueService.getJobProgressStream(this.imageQueue, jobId, 25);
+  }
+
+  async ocrImage(
+    file: Express.Multer.File,
+    language = 'eng',
+  ): Promise<{ text: string; confidence: number; wordCount: number; charCount: number }> {
+    const SUPPORTED = ['eng', 'spa', 'fra', 'deu', 'por'];
+    const lang = SUPPORTED.includes(language) ? language : 'eng';
+    const cachePath = path.join(process.cwd(), 'tessdata');
+
+    const worker = await Tesseract.createWorker(lang, 1, { cachePath });
+    try {
+      const { data } = await worker.recognize(file.buffer);
+      const text = data.text.trim();
+      return {
+        text,
+        confidence: Math.round(data.confidence),
+        wordCount: text ? text.split(/\s+/).filter((w) => w.length > 0).length : 0,
+        charCount: text.replace(/\s+/g, '').length,
+      };
+    } finally {
+      await worker.terminate();
+    }
   }
 
   async compressImage(

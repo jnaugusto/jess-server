@@ -45,6 +45,38 @@ export class ImageController {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm)).toString()} ${sizes[i]}`;
   }
 
+  @Post('ocr')
+  @ApiOperation({ summary: 'Extract text from an image using OCR (Tesseract)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        language: {
+          type: 'string',
+          default: 'eng',
+          enum: ['eng', 'spa', 'fra', 'deu', 'por'],
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async ocrImage(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Body('language') language: string,
+  ) {
+    return await this.imageService.ocrImage(file, language || 'eng');
+  }
+
   @Post('compress')
   @ApiOperation({
     summary: 'Compress an image and optimize it (Returns Base64 + Metadata)',
