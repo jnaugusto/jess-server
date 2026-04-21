@@ -16,8 +16,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 # Copy source
 COPY . .
 
-# Build with increased memory limit
-RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm run build && \
+# Build and verify output exists
+RUN pnpm run build && \
     echo "Build output:" && \
     find dist -name "*.js" | head -10 && \
     test -f dist/main.js || (echo "ERROR: dist/main.js not found!" && exit 1)
