@@ -48,6 +48,8 @@ services:
     working_dir: /app
     ports:
       - "3005:3005"
+    env_file:
+      - .env
     environment:
       - CI=true
       - NODE_ENV=${NODE_ENV}
@@ -60,6 +62,11 @@ services:
       - POWERSYNC_JWT_PRIVATE_KEY=${POWERSYNC_JWT_PRIVATE_KEY}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET}
+      - GOOGLE_OAUTH_REFRESH_TOKEN=${GOOGLE_OAUTH_REFRESH_TOKEN}
+      - GOOGLE_DRIVE_FOLDER_ID=${GOOGLE_DRIVE_FOLDER_ID}
     depends_on:
       db:
         condition: service_healthy
