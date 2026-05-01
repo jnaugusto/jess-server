@@ -7,6 +7,7 @@ import {
   InternalServerErrorException,
   MaxFileSizeValidator,
   MessageEvent,
+  Ip,
   NotFoundException,
   Param,
   ParseFilePipe,
@@ -212,9 +213,10 @@ export class ImageController {
     )
     file: Express.Multer.File,
     @Body() upscaleImageDto: UpscaleImageDto,
+    @Ip() ip: string,
   ) {
     const { factor = 2, model = '4x_NMKD-Siax_200k' } = upscaleImageDto;
-    return await this.imageService.upscaleImage(file, factor, model);
+    return await this.imageService.upscaleImage(file, factor, model, ip);
   }
 
   @Get('upscale/:jobId/download')
@@ -277,6 +279,7 @@ export class ImageController {
     summary: 'Stream the progress of an upscaling task using SSE',
   })
   getUpscaleProgress(@Param('jobId') jobId: string): Observable<MessageEvent> {
+    console.log(`[SSE] Progress requested for Job ID: ${jobId}`);
     return this.imageService.getJobProgressStream(jobId);
   }
 }

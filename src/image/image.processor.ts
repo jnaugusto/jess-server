@@ -1,14 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { exec } from 'child_process';
-import * as fs from 'fs/promises';
-import * as os from 'os';
-import * as path from 'path';
-import sharp from 'sharp'; // Add this dependency
-import { promisify } from 'util';
-
-const execPromise = promisify(exec);
+import sharp from 'sharp';
 
 interface UpscaleJobData {
   fileName: string;
@@ -36,22 +29,16 @@ export class ImageProcessor extends WorkerHost {
 
   private async handleUpscale(job: Job<UpscaleJobData>) {
     const { data } = job;
-    const jobId = job.id ?? Date.now().toString();
-    const upscaleFactor = '2';
-
-    const tempDir = os.tmpdir();
-    const inputPath = path.join(tempDir, `input_${jobId}.png`); // Always use PNG for input
-    const normalizedPath = path.join(tempDir, `normalized_${jobId}.png`);
-    const outputPath = path.join(tempDir, `output_${jobId}.png`);
+    const upscaleFactor = data.upscaleFactor || 2;
 
     this.logger.log(
-      `Upscaling image: ${data.fileName} by ${upscaleFactor}x using model ${data.model}`,
+      `[Job ${job.id ?? 'unknown'}] Upscaling image: ${data.fileName} by ${String(upscaleFactor)}x using Replicate (nightmareai/real-esrgan)`,
     );
 
     try {
       await job.updateProgress(5);
 
-      // Convert buffer
+      // Convert buffer to base64 for Replicate input
       let imageBuffer: Buffer;
       const bufferData = data.buffer as unknown as { type: string; data: number[] };
       if (Buffer.isBuffer(data.buffer)) {
@@ -66,91 +53,68 @@ export class ImageProcessor extends WorkerHost {
         imageBuffer = Buffer.from(data.buffer);
       }
 
-      await fs.writeFile(inputPath, imageBuffer);
-      await job.updateProgress(10);
+      // Check image size and resize if it exceeds Replicate's GPU memory limits (~2M pixels)
+      const MAX_PIXELS = 2000000;
+      const metadata = await sharp(imageBuffer).metadata();
+      const width = metadata.width || 0;
+      const height = metadata.height || 0;
+      const totalPixels = width * height;
 
-      // **CRITICAL FIX: Normalize the image first to prevent color artifacts**
-      this.logger.log('Normalizing image...');
-      await sharp(inputPath)
-        .removeAlpha() // Remove transparency
-        .toColorspace('srgb') // Ensure sRGB color space
-        .png({ compressionLevel: 0 }) // Uncompressed for best quality
-        .toFile(normalizedPath);
-
-      await job.updateProgress(20);
-
-      const modelsPath = process.env.NODE_ENV === 'production' ? '/opt/upscayl/models' : 'models';
-
-      // Debug: List models directory
-      try {
-        const files = await fs.readdir(modelsPath);
-        this.logger.log(`Available models in ${modelsPath}: ${files.join(', ')}`);
-      } catch (e) {
-        this.logger.error(`Could not list models in ${modelsPath}: ${(e as Error).message}`);
+      if (totalPixels > MAX_PIXELS) {
+        this.logger.warn(
+          `[Job ${job.id ?? 'unknown'}] Image too large (${String(width)}x${String(height)} = ${String(totalPixels)}px). Resizing to fit within ${String(MAX_PIXELS)}px.`,
+        );
+        const scale = Math.sqrt(MAX_PIXELS / totalPixels);
+        const newWidth = Math.floor(width * scale);
+        imageBuffer = await sharp(imageBuffer).resize(newWidth).toBuffer();
+        await job.updateProgress(10);
       }
 
-      // Optimized params: -s for explicit scale, -x for TTA mode (better quality), -t 400 for larger tiles (fewer artifacts)
-      const cmd = `realesrgan-ncnn-vulkan -i "${normalizedPath}" -o "${outputPath}" -s ${upscaleFactor} -m "${modelsPath}" -n ${data.model} -t 400 -x -f png -v`;
+      const base64Input = `data:${data.mimeType || 'image/png'};base64,${imageBuffer.toString('base64')}`;
 
-      this.logger.log(`Executing: ${cmd}`);
+      await job.updateProgress(15);
 
-      try {
-        const { stdout, stderr } = await execPromise(cmd);
-        if (stdout) this.logger.log(`stdout: ${stdout}`);
-        if (stderr) this.logger.warn(`stderr: ${stderr}`);
-      } catch (e: unknown) {
-        const execError = e as { stderr?: string; stdout?: string; message: string };
-        const stderr = execError.stderr ?? '';
-        const stdout = execError.stdout ?? '';
-        this.logger.error(`Upscayl failed. Stderr: ${stderr}, Stdout: ${stdout}`);
+      const Replicate = (await import('replicate')).default;
+      const replicate = new Replicate({
+        auth: process.env.REPLICATE_API_TOKEN,
+        useFileOutput: false,
+      });
 
-        if (stderr.includes('not found') || execError.message.includes('ENOENT')) {
-          throw new Error(
-            'realesrgan-ncnn-vulkan not found. Please ensure the binary is installed in the Docker container.',
-          );
-        }
-        throw e;
+      if (!process.env.REPLICATE_API_TOKEN) {
+        throw new Error('REPLICATE_API_TOKEN is not defined in environment variables');
       }
 
-      await job.updateProgress(90);
+      this.logger.log('Starting Replicate prediction...');
 
-      // Read result
-      const outputBuffer = await fs.readFile(outputPath);
-      const base64 = `data:image/png;base64,${outputBuffer.toString('base64')}`;
+      const output = await replicate.run('flux-kontext-apps/restore-image', {
+        input: {
+          input_image: base64Input,
+        },
+      });
 
-      // Cleanup all temp files
-      await Promise.all([
-        fs.unlink(inputPath).catch(() => {
-          /* ignore */
-        }),
-        fs.unlink(normalizedPath).catch(() => {
-          /* ignore */
-        }),
-        fs.unlink(outputPath).catch(() => {
-          /* ignore */
-        }),
-      ]);
+      await job.updateProgress(80);
+
+      const result = output as unknown;
+      if (!result || typeof result !== 'string') {
+        throw new Error(`Unexpected output from Replicate: ${JSON.stringify(result)}`);
+      }
+
+      this.logger.log(`Replicate output received: ${result}`);
+
+      // Replicate returns a URL, we need to fetch it and convert to base64
+      const response = await fetch(result);
+      if (!response.ok) throw new Error(`Failed to fetch upscaled image from ${result}`);
+
+      const arrayBuffer = await response.arrayBuffer();
+      const outputBuffer = Buffer.from(arrayBuffer);
+      const base64Result = `data:image/png;base64,${outputBuffer.toString('base64')}`;
 
       await job.updateProgress(100);
       this.logger.log(`Finished upscaling: ${data.fileName}`);
 
-      return { success: true, base64 };
+      return { success: true, base64: base64Result };
     } catch (error) {
-      this.logger.error(`Error during upscale: ${(error as Error).message}`);
-
-      // Ensure cleanup on error
-      await Promise.all([
-        fs.unlink(inputPath).catch(() => {
-          /* ignore */
-        }),
-        fs.unlink(normalizedPath).catch(() => {
-          /* ignore */
-        }),
-        fs.unlink(outputPath).catch(() => {
-          /* ignore */
-        }),
-      ]);
-
+      this.logger.error(`Error during upscale with Replicate: ${(error as Error).message}`);
       throw error;
     }
   }

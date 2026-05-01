@@ -1,35 +1,74 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { 
+  Injectable, 
+  InternalServerErrorException, 
+  Logger, 
+  BadRequestException 
+} from '@nestjs/common';
 import { Queue } from 'bullmq';
+import * as crypto from 'crypto';
 import * as path from 'path';
 import { Observable } from 'rxjs';
 import sharp from 'sharp';
 import Tesseract from 'tesseract.js';
 import { QueueService } from '../common/services/queue.service';
+import { RedisService } from '../common/services/redis.service';
 
 @Injectable()
 export class ImageService {
+  private readonly logger = new Logger(ImageService.name);
+
   constructor(
     @InjectQueue('image-processing')
     private readonly imageQueue: Queue,
     private readonly queueService: QueueService,
+    private readonly redisService: RedisService,
   ) {}
 
   async upscaleImage(
     file: Express.Multer.File,
     factor = 2,
     model = '4x_NMKD-Siax_200k',
+    ip?: string,
   ): Promise<{ jobId: string }> {
     try {
-      const job = await this.imageQueue.add('upscale', {
-        fileName: file.originalname,
-        upscaleFactor: factor,
-        buffer: file.buffer,
-        mimeType: file.mimetype,
-        model,
-      });
+      if (ip) {
+        const rateLimitKey = `rate-limit:restoration:${ip}`;
+        const count = await this.redisService.getClient().get(rateLimitKey);
+        const currentCount = count ? parseInt(count, 10) : 0;
 
-      return { jobId: String(job.id) };
+        if (currentCount >= 3) {
+          throw new BadRequestException(
+            'Daily limit reached. You can only restore 3 images per 24 hours.',
+          );
+        }
+
+        // Increment count
+        await this.redisService.getClient().incr(rateLimitKey);
+        if (currentCount === 0) {
+          await this.redisService.getClient().expire(rateLimitKey, 24 * 60 * 60);
+        }
+      }
+
+      const jobId = crypto.randomUUID();
+      await this.imageQueue.add(
+        'upscale',
+        {
+          fileName: file.originalname,
+          upscaleFactor: factor,
+          buffer: file.buffer,
+          mimeType: file.mimetype,
+          model,
+        },
+        {
+          jobId,
+          removeOnComplete: { age: 300, count: 1000 },
+          removeOnFail: { age: 24 * 3600, count: 5000 },
+        },
+      );
+
+      this.logger.log(`Created upscale job: ${jobId}`);
+      return { jobId };
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown error during upscale queuing';

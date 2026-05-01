@@ -54,7 +54,7 @@ SKILLS:
 SELF-BUILT PROJECTS:
 1. Location Tracking App & Dashboard — Real-time GPS tracking via WebSockets, Mapbox GL JS map with live trails, NestJS REST API, GeoJSON geofencing
 2. Multi-Page PDF Generator — Playwright-based headless Chromium renderer, Redis job queue, handles 50+ page reports; powers Logmaster Australia compliance reports
-3. AI Image Upscaler — AI super-resolution, 2x/4x upscaling, React drag-and-drop UI
+3. AI Image Restoration — AI super-resolution, 2x/4x upscaling, React drag-and-drop UI
 4. Image Compression Tool — Bulk compress/convert images to WebP/JPG/PNG, quality slider, batch download; served via NestJS + Sharp API
 5. Image to Text (OCR) — OCR pipeline with image pre-processing, multi-language support, handles JPG/PNG/scanned PDFs
 6. CSV to JSON Converter — Custom field mapping, type coercion, nested JSON from dot-notation headers, REST API for pipeline automation
