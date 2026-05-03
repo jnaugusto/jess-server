@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { and, between, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { locations } from '../database/schema';
+import { locationsOld as locations } from '../database/schema.old';
 import { GetLocationsDto } from './dto/get-locations.dto';
 
 @Injectable()

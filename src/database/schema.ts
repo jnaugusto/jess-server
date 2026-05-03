@@ -1,5 +1,13 @@
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
-import { boolean, doublePrecision, bigint, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  doublePrecision,
+  index,
+  pgTable,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 
 export const users = pgTable('users', {
@@ -65,48 +73,63 @@ export type NewAccount = InferInsertModel<typeof accounts>;
 export type Verification = InferSelectModel<typeof verifications>;
 export type NewVerification = InferInsertModel<typeof verifications>;
 
-export const locations = pgTable('locations', {
-  id: text('id').primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => users.id),
-  deviceId: text('device_id').notNull(),
-  latitude: text('latitude').notNull(),
-  longitude: text('longitude').notNull(),
-  accuracy: text('accuracy').notNull(),
-  speed: text('speed').notNull(),
-  timestamp: text('timestamp').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+// Track and Location Points schema updated based on MERIDIAN_SPEC
+export const tracks = pgTable(
+  'tracks',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    title: text('title').notNull(),
+    status: text('status').notNull().default('completed'), // 'active' | 'paused' | 'completed'
+    startTime: bigint('start_time', { mode: 'number' }).notNull(),
+    endTime: bigint('end_time', { mode: 'number' }), // Nullable
+    distance: doublePrecision('distance').notNull(),
+    avgSpeed: doublePrecision('avg_speed').notNull(),
+    maxSpeed: doublePrecision('max_speed').notNull().default(0),
+    durationSec: bigint('duration_sec', { mode: 'number' }).notNull().default(0),
+    deviceId: text('device_id'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    userStartedIdx: index('idx_tracks_user_started').on(table.userId, table.startTime.desc()),
+  }),
+);
 
-export type Location = InferSelectModel<typeof locations>;
-export type NewLocation = InferInsertModel<typeof locations>;
-
-export const tracks = pgTable('tracks', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id),
-  title: text('title').notNull(),
-  startTime: bigint('start_time', { mode: 'number' }).notNull(),
-  endTime: bigint('end_time', { mode: 'number' }).notNull(),
-  distance: doublePrecision('distance').notNull(),
-  avgSpeed: doublePrecision('avg_speed').notNull(),
-});
-
-export const locationPoints = pgTable('location_points', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull(),
-  trackId: text('track_id').notNull().references(() => tracks.id),
-  latitude: doublePrecision('latitude').notNull(),
-  longitude: doublePrecision('longitude').notNull(),
-  accuracy: doublePrecision('accuracy').notNull(),
-  altitude: doublePrecision('altitude'),
-  speed: doublePrecision('speed'),
-  heading: doublePrecision('heading'),
-  timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
-});
+export const locationPoints = pgTable(
+  'location_points',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    trackId: text('track_id')
+      .notNull()
+      .references(() => tracks.id),
+    latitude: doublePrecision('latitude').notNull(),
+    longitude: doublePrecision('longitude').notNull(),
+    accuracy: doublePrecision('accuracy').notNull(),
+    altitude: doublePrecision('altitude'),
+    speed: doublePrecision('speed'),
+    heading: doublePrecision('heading'),
+    timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    trackTimeIdx: index('idx_points_track_time').on(table.trackId, table.timestamp),
+    userTimeIdx: index('idx_points_user_time').on(table.userId, table.timestamp),
+  }),
+);
 
 export type Track = InferSelectModel<typeof tracks>;
+export type NewTrack = InferInsertModel<typeof tracks>;
 export type LocationPoint = InferSelectModel<typeof locationPoints>;
+export type NewLocationPoint = InferInsertModel<typeof locationPoints>;
+
+// Zod Schemas
+export const selectTrackSchema = createSelectSchema(tracks);
+export const insertTrackSchema = createInsertSchema(tracks);
+export const selectLocationPointSchema = createSelectSchema(locationPoints);
+export const insertLocationPointSchema = createInsertSchema(locationPoints);
 
 // Zod Schemas
 export const selectUserSchema = createSelectSchema(users);
