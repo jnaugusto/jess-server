@@ -2,17 +2,38 @@ import { Injectable } from '@nestjs/common';
 import * as jose from 'jose';
 import { sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { Type } from 'class-transformer';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsIn,
+  IsObject,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import * as schema from '../database/schema';
 import { DatabaseService } from '../database/database.service';
 import { env } from '../env';
 
 export class PowerSyncOp {
+  @IsString()
   table!: string;
+
+  @IsIn(['PUT', 'PATCH', 'DELETE'])
   op!: 'PUT' | 'PATCH' | 'DELETE';
+
+  // `row` is freeform — its keys depend on the target table — so we only
+  // validate that it is an object. ValidationPipe(whitelist:true) strips
+  // unknown keys at the *class* level, not inside plain object values.
+  @IsObject()
   row!: Record<string, unknown>;
 }
 
 export class PowerSyncTransaction {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => PowerSyncOp)
   ops!: PowerSyncOp[];
 }
 
