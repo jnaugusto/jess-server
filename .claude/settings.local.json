@@ -4,7 +4,10 @@
       "Bash(brew install:*)",
       "Bash(gcloud compute:*)",
       "Bash(code:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(pnpm add *)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm drizzle-kit *)"
     ]
   }
 }

@@ -31,6 +31,12 @@ async function bootstrap() {
       .map((o) => o.trim())
       .filter(Boolean),
   );
+  // Capacitor WebView origins — must mirror auth.ts trustedOrigins.
+  // Android with useLegacyBridge=true serves from http://localhost; the
+  // new bridge uses https://localhost; iOS uses capacitor://localhost.
+  for (const o of ['capacitor://localhost', 'http://localhost', 'https://localhost']) {
+    allowedOrigins.add(o);
+  }
   app.enableCors({
     origin: (
       origin: string | undefined,

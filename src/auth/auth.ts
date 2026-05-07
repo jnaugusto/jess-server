@@ -19,6 +19,7 @@ export const createAuth = (db: NodePgDatabase<typeof schema>) =>
     emailAndPassword: {
       enabled: true,
       autoSignIn: true,
+      minPasswordLength: 4,
     },
     trustedOrigins: [
       'https://api.jnaugusto.com',

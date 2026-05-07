@@ -26,8 +26,11 @@ export class PowerSyncService {
       'RS256',
     );
 
+    // The `kid` must match the entry in config/powersync.yaml's
+    // client_auth.jwks. Without it, PowerSync can't pick a key from
+    // its keystore and rejects with PSYNC_S2101.
     const jwt = await new jose.SignJWT({})
-      .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+      .setProtectedHeader({ alg: 'RS256', typ: 'JWT', kid: 'powersync-key-1' })
       .setIssuedAt()
       .setIssuer('jess-server')
       .setAudience(env.POWERSYNC_URL)

@@ -8,16 +8,23 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { CommonModule } from './common/common.module';
+import { MailModule } from './common/mail/mail.module';
 import { DatabaseModule } from './database/database.module';
+import { DriversModule } from './drivers/drivers.module';
 import { env } from './env';
 import { ImageModule } from './image/image.module';
-import { PdfModule } from './pdf/pdf.module';
+import { InvitesModule } from './invites/invites.module';
 import { LocationsModule } from './locations/locations.module';
+import { OverviewModule } from './overview/overview.module';
+import { PdfModule } from './pdf/pdf.module';
 import { PowerSyncModule } from './powersync/powersync.module';
+import { SettingsModule } from './settings/settings.module';
 import { TracksModule } from './tracks/tracks.module';
 import { TemplateModule } from './template/template.module';
 import { UsersModule } from './users/users.module';
+import { VehiclesModule } from './vehicles/vehicles.module';
 import { AnalyzeSiteModule } from './analyze-site/analyze-site.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { DriveModule } from './drive/drive.module';
 
 @Module({
@@ -34,6 +41,7 @@ import { DriveModule } from './drive/drive.module';
       adapter: ExpressAdapter,
     }),
     CommonModule,
+    MailModule,
     ImageModule,
     PdfModule,
     TemplateModule,
@@ -43,6 +51,12 @@ import { DriveModule } from './drive/drive.module';
     TracksModule,
     AuthModule.register(),
     UsersModule,
+    DriversModule,
+    VehiclesModule,
+    InvitesModule,
+    SettingsModule,
+    OverviewModule,
+    AnalyticsModule,
     AnalyzeSiteModule,
     DriveModule,
     ChatModule,

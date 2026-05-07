@@ -4,6 +4,7 @@ import {
   boolean,
   doublePrecision,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -113,6 +114,7 @@ export const locationPoints = pgTable(
     speed: doublePrecision('speed'),
     heading: doublePrecision('heading'),
     timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
   },
   (table) => ({
     trackTimeIdx: index('idx_points_track_time').on(table.trackId, table.timestamp),
@@ -140,3 +142,122 @@ export const selectAccountSchema = createSelectSchema(accounts);
 export const insertAccountSchema = createInsertSchema(accounts);
 export const selectVerificationSchema = createSelectSchema(verifications);
 export const insertVerificationSchema = createInsertSchema(verifications);
+
+// ─────────── Drivers ───────────
+export const drivers = pgTable(
+  'drivers',
+  {
+    id: text('id').primaryKey(),
+    ownerUserId: text('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    driverUserId: text('driver_user_id').references(() => users.id),
+    fullName: text('full_name').notNull(),
+    email: text('email'),
+    phone: text('phone'),
+    code: text('code').notNull(),
+    status: text('status').notNull().default('active'),
+    assignedVehicleId: text('assigned_vehicle_id'),
+    notes: text('notes'),
+    lastActiveAt: timestamp('last_active_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    ownerIdx: index('idx_drivers_owner').on(table.ownerUserId),
+    driverUserIdx: index('idx_drivers_driver_user').on(table.driverUserId),
+  }),
+);
+
+// ─────────── Vehicles ───────────
+export const vehicles = pgTable(
+  'vehicles',
+  {
+    id: text('id').primaryKey(),
+    ownerUserId: text('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    code: text('code').notNull(),
+    plate: text('plate').notNull(),
+    make: text('make'),
+    model: text('model'),
+    year: integer('year'),
+    type: text('type'),
+    odometerKm: doublePrecision('odometer_km').notNull().default(0),
+    nextServiceKm: doublePrecision('next_service_km'),
+    status: text('status').notNull().default('available'),
+    assignedDriverId: text('assigned_driver_id'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    ownerIdx: index('idx_vehicles_owner').on(table.ownerUserId),
+  }),
+);
+
+// ─────────── Driver invites ───────────
+export const driverInvites = pgTable(
+  'driver_invites',
+  {
+    id: text('id').primaryKey(),
+    ownerUserId: text('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    email: text('email'),
+    fullName: text('full_name').notNull(),
+    code: text('code').notNull(),
+    assignedVehicleId: text('assigned_vehicle_id'),
+    role: text('role').notNull().default('driver'),
+    message: text('message'),
+    mode: text('mode').notNull().default('email'),
+    token: text('token').notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    acceptedAt: timestamp('accepted_at'),
+    acceptedByUserId: text('accepted_by_user_id').references(() => users.id),
+    revokedAt: timestamp('revoked_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    ownerIdx: index('idx_invites_owner').on(table.ownerUserId),
+    tokenIdx: index('idx_invites_token').on(table.token),
+  }),
+);
+
+// ─────────── User settings ───────────
+export const userSettings = pgTable('user_settings', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id),
+  orgName: text('org_name'),
+  timezone: text('timezone').notNull().default('Asia/Manila'),
+  units: text('units').notNull().default('metric'),
+  dateFormat: text('date_format').notNull().default('D MMM YYYY'),
+  weekStart: text('week_start').notNull().default('mon'),
+  autoStart: boolean('auto_start').notNull().default(true),
+  autoEnd: boolean('auto_end').notNull().default(true),
+  highAccuracy: boolean('high_accuracy').notNull().default(false),
+  sampleIntervalSec: integer('sample_interval_sec').notNull().default(10),
+  speedAlertKmh: integer('speed_alert_kmh').notNull().default(80),
+  privacyMode: text('privacy_mode').notNull().default('off'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Types
+export type Driver = InferSelectModel<typeof drivers>;
+export type NewDriver = InferInsertModel<typeof drivers>;
+export type Vehicle = InferSelectModel<typeof vehicles>;
+export type NewVehicle = InferInsertModel<typeof vehicles>;
+export type DriverInvite = InferSelectModel<typeof driverInvites>;
+export type NewDriverInvite = InferInsertModel<typeof driverInvites>;
+export type UserSettings = InferSelectModel<typeof userSettings>;
+export type NewUserSettings = InferInsertModel<typeof userSettings>;
+
+// Zod Schemas
+export const selectDriverSchema = createSelectSchema(drivers);
+export const insertDriverSchema = createInsertSchema(drivers);
+export const selectVehicleSchema = createSelectSchema(vehicles);
+export const insertVehicleSchema = createInsertSchema(vehicles);
+export const selectDriverInviteSchema = createSelectSchema(driverInvites);
+export const insertDriverInviteSchema = createInsertSchema(driverInvites);
+export const selectUserSettingsSchema = createSelectSchema(userSettings);
+export const insertUserSettingsSchema = createInsertSchema(userSettings);
