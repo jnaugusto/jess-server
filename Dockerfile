@@ -43,7 +43,7 @@ RUN corepack enable
 
 # Copy package files and install prod only deps
 COPY package.json pnpm-lock.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --no-frozen-lockfile
 
 # Install Playwright browsers
 RUN npx playwright install --with-deps chromium
