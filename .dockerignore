@@ -1,4 +1,6 @@
 node_modules
+.pnpm-store
+.pnpm
 dist
 .asset
 .git
@@ -9,3 +11,11 @@ Dockerfile
 .dockerignore
 test
 *.md
+.env
+.env.*
+*.log
+coverage
+.cache
+.turbo
+.vscode
+.idea

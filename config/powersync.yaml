@@ -31,6 +31,10 @@ sync_rules:
 # Settings for client authentication
 client_auth:
   supabase: false
+  # Accept tokens whose `aud` claim matches the public URL.
+  # Must include whatever value jess-server's PowerSyncService.generateToken
+  # passes to setAudience() — currently env.POWERSYNC_URL.
+  audience: ['https://powersync.jnaugusto.com']
   jwks:
     keys:
       - kty: 'RSA'
