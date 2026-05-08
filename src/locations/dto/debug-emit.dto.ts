@@ -48,8 +48,10 @@ export class DebugEmitDto {
   @Max(360)
   heading?: number;
 
-  @ApiPropertyOptional({ enum: ['moving', 'idle', 'alert', 'offline'] })
+  @ApiPropertyOptional({
+    enum: ['driving', 'stopped', 'speeding', 'off_duty', 'standby'],
+  })
   @IsOptional()
-  @IsIn(['moving', 'idle', 'alert', 'offline'])
-  status?: 'moving' | 'idle' | 'alert' | 'offline';
+  @IsIn(['driving', 'stopped', 'speeding', 'off_duty', 'standby'])
+  status?: 'driving' | 'stopped' | 'speeding' | 'off_duty' | 'standby';
 }

@@ -5,7 +5,12 @@ import { drivers, locationPoints, vehicles } from '../database/schema';
 import { locationsOld as locations } from '../database/schema.old';
 import { GetLocationsDto } from './dto/get-locations.dto';
 
-export type LiveStatus = 'moving' | 'idle' | 'alert' | 'offline';
+export type LiveStatus =
+  | 'driving'
+  | 'stopped'
+  | 'speeding'
+  | 'off_duty'
+  | 'standby';
 
 export interface LiveLocation {
   driverId: string;
@@ -30,10 +35,10 @@ function deriveStatus(
   ageMs: number,
   speedAlertThreshold = ALERT_SPEED_KMH,
 ): LiveStatus {
-  if (ageMs > STALE_AFTER_MS) return 'offline';
-  if (speedKmh >= speedAlertThreshold) return 'alert';
-  if (speedKmh <= IDLE_SPEED_KMH) return 'idle';
-  return 'moving';
+  if (ageMs > STALE_AFTER_MS) return 'off_duty';
+  if (speedKmh >= speedAlertThreshold) return 'speeding';
+  if (speedKmh <= IDLE_SPEED_KMH) return 'stopped';
+  return 'driving';
 }
 
 @Injectable()
@@ -61,6 +66,24 @@ export class LocationsService {
       .where(eq(locations.userId, userId));
 
     return rows.map((r) => r.deviceId);
+  }
+
+  /**
+   * Cheap batched lookup: driverId → driverUserId. Used by the gateway
+   * to enrich a snapshot with presence info without changing the public
+   * LiveLocation shape.
+   */
+  async mapDriverIdToDriverUserId(driverIds: string[]) {
+    if (driverIds.length === 0) return new Map<string, string>();
+    const rows = await this.db.db
+      .select({ id: drivers.id, driverUserId: drivers.driverUserId })
+      .from(drivers)
+      .where(inArray(drivers.id, driverIds));
+    const out = new Map<string, string>();
+    for (const r of rows) {
+      if (r.driverUserId) out.set(r.id, r.driverUserId);
+    }
+    return out;
   }
 
   /**

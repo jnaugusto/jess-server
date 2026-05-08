@@ -25,7 +25,7 @@ interface LiveLocationBroadcast {
   lng: number;
   speed: number;
   heading?: number;
-  status: 'moving' | 'idle' | 'alert' | 'offline';
+  status: 'driving' | 'stopped' | 'speeding' | 'off_duty' | 'standby';
   locationLabel?: string;
   updatedAt: string;
 }
@@ -49,6 +49,13 @@ export class LocationsGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
 {
   private readonly logger = new Logger(LocationsGateway.name);
+  private tickCount = 0;
+  /**
+   * Presence map: driverUserId → set of socketIds currently connected.
+   * A driver is "available" when this set is non-empty; their dashboard
+   * dot reflects that even before they start a trip.
+   */
+  private readonly onlineSockets = new Map<string, Set<string>>();
 
   @WebSocketServer()
   server!: Server;
@@ -65,6 +72,9 @@ export class LocationsGateway
   async handleConnection(@ConnectedSocket() client: AuthedSocket) {
     const userId = await this.resolveUserId(client);
     if (!userId) {
+      this.logger.warn(
+        `socket ${client.id} rejected — auth failed (no/invalid token)`,
+      );
       client.emit('error', { error: 'unauthorized' });
       client.disconnect(true);
       return;
@@ -72,11 +82,30 @@ export class LocationsGateway
 
     client.data.userId = userId;
     void client.join(`user:${userId}`);
-    this.logger.debug(`socket ${client.id} connected (user ${userId})`);
+    this.logger.log(`socket ${client.id} connected (user ${userId})`);
+
+    // Track presence + announce availability to every workspace this user
+    // is a driver under. Only fire the announce on the FIRST socket for
+    // that user (subsequent dashboard refreshes shouldn't re-announce).
+    const sockets = this.onlineSockets.get(userId) ?? new Set<string>();
+    const wasOffline = sockets.size === 0;
+    sockets.add(client.id);
+    this.onlineSockets.set(userId, sockets);
+    if (wasOffline) {
+      void this.announceAvailable(userId).catch((e) =>
+        this.logger.warn(
+          `announceAvailable failed: ${e instanceof Error ? e.message : e}`,
+        ),
+      );
+    }
 
     try {
       const snapshot = await this.locationsService.getLiveLocations(userId);
-      client.emit('location:bulk', snapshot);
+      // Override status to 'available' for any driver in the snapshot
+      // whose socket is currently connected — so a dashboard that joins
+      // after a phone is already online sees them correctly.
+      const enriched = await this.applyPresenceToSnapshot(snapshot);
+      client.emit('location:bulk', enriched);
     } catch (err) {
       this.logger.warn(
         `Failed to send initial snapshot to ${client.id}: ${err instanceof Error ? err.message : err}`,
@@ -84,8 +113,79 @@ export class LocationsGateway
     }
   }
 
+  private async announceAvailable(driverUserId: string) {
+    const driverRows =
+      await this.locationsService.findDriversByDriverUserId(driverUserId);
+    for (const meta of driverRows) {
+      this.server
+        .to(`user:${meta.workspaceOwnerUserId}`)
+        .emit('driver:available', { driverId: meta.driverId });
+    }
+  }
+
+  private async announceUnavailable(driverUserId: string) {
+    const driverRows =
+      await this.locationsService.findDriversByDriverUserId(driverUserId);
+    for (const meta of driverRows) {
+      this.server
+        .to(`user:${meta.workspaceOwnerUserId}`)
+        .emit('driver:offline', { driverId: meta.driverId });
+    }
+  }
+
+  /**
+   * For the bulk snapshot we send a dashboard on connect: any driver
+   * whose underlying user has at least one open phone socket gets their
+   * status bumped to 'available' (distinct from a stale 'offline').
+   */
+  private async applyPresenceToSnapshot(
+    snapshot: Awaited<
+      ReturnType<LocationsService['getLiveLocations']>
+    >,
+  ) {
+    if (this.onlineSockets.size === 0) return snapshot;
+    // Resolve each driverId in the snapshot to its driverUserId so we
+    // can check presence. We do one batched query via the service.
+    const idsToCheck = snapshot.map((s) => s.driverId);
+    if (idsToCheck.length === 0) return snapshot;
+
+    const driverUserMap =
+      await this.locationsService.mapDriverIdToDriverUserId(idsToCheck);
+    return snapshot.map((s) => {
+      const driverUserId = driverUserMap.get(s.driverId);
+      if (!driverUserId) return s;
+      const sockets = this.onlineSockets.get(driverUserId);
+      if (!sockets || sockets.size === 0) return s;
+      // Phone is connected — but only override if the existing status is
+      // 'off_duty'. If they're actively in a trip we keep the real status.
+      if (s.status === 'off_duty') return { ...s, status: 'standby' as const };
+      return s;
+    });
+  }
+
   handleDisconnect(@ConnectedSocket() client: AuthedSocket) {
-    this.logger.debug(`socket ${client.id} disconnected`);
+    this.logger.log(
+      `socket ${client.id} disconnected (user ${client.data.userId ?? '—'})`,
+    );
+
+    const userId = client.data.userId;
+    if (!userId) return;
+
+    const sockets = this.onlineSockets.get(userId);
+    if (!sockets) return;
+    sockets.delete(client.id);
+    if (sockets.size === 0) {
+      this.onlineSockets.delete(userId);
+      // Last connection for this driver-user just dropped — flip the
+      // dashboard dot to offline (unless they're still mid-trip on a
+      // dashboard that gets explicit `driver:offline` filtered… we keep
+      // it simple and just emit unavailable).
+      void this.announceUnavailable(userId).catch((e) =>
+        this.logger.warn(
+          `announceUnavailable failed: ${e instanceof Error ? e.message : e}`,
+        ),
+      );
+    }
   }
 
   /**
@@ -136,7 +236,23 @@ export class LocationsGateway
 
     const driverRows =
       await this.locationsService.findDriversByDriverUserId(driverUserId);
-    if (driverRows.length === 0) return;
+    if (driverRows.length === 0) {
+      if (this.tickCount % 50 === 0) {
+        this.logger.warn(
+          `tick from user ${driverUserId} ignored — no driver row links them to a workspace`,
+        );
+      }
+      this.tickCount++;
+      return;
+    }
+
+    // Log first tick + every 25th to confirm flow without flooding.
+    if (this.tickCount === 0 || this.tickCount % 25 === 0) {
+      this.logger.log(
+        `tick #${this.tickCount} from user ${driverUserId} → ${driverRows.length} workspace(s)`,
+      );
+    }
+    this.tickCount++;
 
     for (const meta of driverRows) {
       const payload = this.locationsService.buildBroadcastPayload(

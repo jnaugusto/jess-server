@@ -79,7 +79,7 @@ export class LocationsController {
     const speedKmh = dto.speed ?? 35;
     const status =
       dto.status ??
-      (speedKmh >= 90 ? 'alert' : speedKmh <= 1 ? 'idle' : 'moving');
+      (speedKmh >= 90 ? 'speeding' : speedKmh <= 1 ? 'stopped' : 'driving');
 
     const payload = {
       driverId: driver.driverId,
