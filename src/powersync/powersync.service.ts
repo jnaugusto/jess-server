@@ -189,11 +189,16 @@ export class PowerSyncService {
 
     for (const driverUserId of completedTracks) {
       const driverRows = await lookup(driverUserId);
-      for (const meta of driverRows) {
-        this.locationsGateway.markDriverOffline(
-          meta.workspaceOwnerUserId,
-          meta.driverId,
-        );
+      // If the phone is still on the live socket → flip to standby.
+      // If the phone is gone → the disconnect handler already removed
+      // them from the dashboard, nothing more to do here.
+      if (this.locationsGateway.isUserOnline(driverUserId)) {
+        for (const meta of driverRows) {
+          this.locationsGateway.markDriverAvailable(
+            meta.workspaceOwnerUserId,
+            meta.driverId,
+          );
+        }
       }
     }
   }

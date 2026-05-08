@@ -25,7 +25,7 @@ interface LiveLocationBroadcast {
   lng: number;
   speed: number;
   heading?: number;
-  status: 'driving' | 'stopped' | 'speeding' | 'off_duty' | 'standby';
+  status: 'driving' | 'stopped' | 'speeding' | 'standby';
   locationLabel?: string;
   updatedAt: string;
 }
@@ -134,32 +134,24 @@ export class LocationsGateway
   }
 
   /**
-   * For the bulk snapshot we send a dashboard on connect: any driver
-   * whose underlying user has at least one open phone socket gets their
-   * status bumped to 'available' (distinct from a stale 'offline').
+   * For the bulk snapshot we send a dashboard on connect: filter to only
+   * drivers whose phones currently have a live socket. Disconnected
+   * drivers don't appear at all (they re-appear when they sign in).
    */
   private async applyPresenceToSnapshot(
     snapshot: Awaited<
       ReturnType<LocationsService['getLiveLocations']>
     >,
   ) {
-    if (this.onlineSockets.size === 0) return snapshot;
-    // Resolve each driverId in the snapshot to its driverUserId so we
-    // can check presence. We do one batched query via the service.
+    if (this.onlineSockets.size === 0 || snapshot.length === 0) return [];
     const idsToCheck = snapshot.map((s) => s.driverId);
-    if (idsToCheck.length === 0) return snapshot;
-
     const driverUserMap =
       await this.locationsService.mapDriverIdToDriverUserId(idsToCheck);
-    return snapshot.map((s) => {
+    return snapshot.filter((s) => {
       const driverUserId = driverUserMap.get(s.driverId);
-      if (!driverUserId) return s;
+      if (!driverUserId) return false;
       const sockets = this.onlineSockets.get(driverUserId);
-      if (!sockets || sockets.size === 0) return s;
-      // Phone is connected — but only override if the existing status is
-      // 'off_duty'. If they're actively in a trip we keep the real status.
-      if (s.status === 'off_duty') return { ...s, status: 'standby' as const };
-      return s;
+      return !!sockets && sockets.size > 0;
     });
   }
 
@@ -281,6 +273,28 @@ export class LocationsGateway
     this.server
       .to(`user:${workspaceUserId}`)
       .emit('driver:offline', { driverId });
+  }
+
+  /**
+   * Tell a workspace that a driver is on standby (app open, no trip).
+   * Used by the upload path right after a trip-completed event so the
+   * dashboard doesn't get stuck on `off_duty` when the phone is still
+   * connected.
+   */
+  markDriverAvailable(workspaceUserId: string, driverId: string) {
+    this.server
+      .to(`user:${workspaceUserId}`)
+      .emit('driver:available', { driverId });
+  }
+
+  /**
+   * True if a phone (one or more sockets) is currently connected for
+   * this user. Used by the upload path to decide whether to follow a
+   * `driver:offline` with a `driver:available` (standby) emit.
+   */
+  isUserOnline(driverUserId: string): boolean {
+    const set = this.onlineSockets.get(driverUserId);
+    return !!set && set.size > 0;
   }
 
   /**

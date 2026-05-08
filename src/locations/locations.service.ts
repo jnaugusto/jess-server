@@ -5,12 +5,7 @@ import { drivers, locationPoints, vehicles } from '../database/schema';
 import { locationsOld as locations } from '../database/schema.old';
 import { GetLocationsDto } from './dto/get-locations.dto';
 
-export type LiveStatus =
-  | 'driving'
-  | 'stopped'
-  | 'speeding'
-  | 'off_duty'
-  | 'standby';
+export type LiveStatus = 'driving' | 'stopped' | 'speeding' | 'standby';
 
 export interface LiveLocation {
   driverId: string;
@@ -35,7 +30,10 @@ function deriveStatus(
   ageMs: number,
   speedAlertThreshold = ALERT_SPEED_KMH,
 ): LiveStatus {
-  if (ageMs > STALE_AFTER_MS) return 'off_duty';
+  // Stale last-known point ⇒ "standby" (driver isn't actively in a trip).
+  // The "should we even show them?" filter is enforced separately at the
+  // gateway level based on socket presence.
+  if (ageMs > STALE_AFTER_MS) return 'standby';
   if (speedKmh >= speedAlertThreshold) return 'speeding';
   if (speedKmh <= IDLE_SPEED_KMH) return 'stopped';
   return 'driving';
