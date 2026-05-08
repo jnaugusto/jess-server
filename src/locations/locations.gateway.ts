@@ -1,8 +1,10 @@
 import { Inject, Logger, OnModuleInit } from '@nestjs/common';
 import {
   ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
@@ -92,6 +94,68 @@ export class LocationsGateway
    */
   broadcastLocation(workspaceUserId: string, payload: LiveLocationBroadcast) {
     this.server.to(`user:${workspaceUserId}`).emit('location:update', payload);
+  }
+
+  /**
+   * Live tick from a phone. Authenticated via the socket handshake on
+   * connect — `client.data.userId` is the *driver's* user_id.
+   *
+   * We translate it into the standard LiveLocationBroadcast shape and
+   * fan it out to every workspace that has this user as a driver. This
+   * is idempotent with the post-PowerSync-upload broadcast: the dashboard
+   * key-merges by driverId, so duplicates just overwrite the older fix.
+   */
+  @SubscribeMessage('location:tick')
+  async handleTick(
+    @ConnectedSocket() client: AuthedSocket,
+    @MessageBody()
+    body: {
+      trackId?: string;
+      lat: number;
+      lng: number;
+      accuracy?: number | null;
+      altitude?: number | null;
+      speed?: number | null;
+      heading?: number | null;
+      timestamp: number;
+    },
+  ) {
+    const driverUserId = client.data.userId;
+    if (!driverUserId) {
+      client.emit('error', { error: 'unauthorized' });
+      return;
+    }
+    if (
+      !body ||
+      typeof body.lat !== 'number' ||
+      typeof body.lng !== 'number' ||
+      typeof body.timestamp !== 'number'
+    ) {
+      return; // ignore malformed
+    }
+
+    const driverRows =
+      await this.locationsService.findDriversByDriverUserId(driverUserId);
+    if (driverRows.length === 0) return;
+
+    for (const meta of driverRows) {
+      const payload = this.locationsService.buildBroadcastPayload(
+        {
+          latitude: body.lat,
+          longitude: body.lng,
+          speed: body.speed ?? null,
+          heading: body.heading ?? null,
+          timestamp: body.timestamp,
+        },
+        {
+          driverId: meta.driverId,
+          driverName: meta.driverName,
+          driverCode: meta.driverCode,
+          vehicleName: meta.vehicleName,
+        },
+      );
+      this.broadcastLocation(meta.workspaceOwnerUserId, payload);
+    }
   }
 
   /**

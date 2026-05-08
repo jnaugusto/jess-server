@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as jose from 'jose';
 import { sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -13,6 +13,8 @@ import {
 } from 'class-validator';
 import * as schema from '../database/schema';
 import { DatabaseService } from '../database/database.service';
+import { LocationsGateway } from '../locations/locations.gateway';
+import { LocationsService } from '../locations/locations.service';
 import { env } from '../env';
 
 export class PowerSyncOp {
@@ -39,7 +41,13 @@ export class PowerSyncTransaction {
 
 @Injectable()
 export class PowerSyncService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  private readonly logger = new Logger(PowerSyncService.name);
+
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly locationsService: LocationsService,
+    private readonly locationsGateway: LocationsGateway,
+  ) {}
 
   async generateToken(userId: string) {
     const privateKey = await jose.importPKCS8(
@@ -86,6 +94,108 @@ export class PowerSyncService {
         }
       }
     });
+
+    // After the DB transaction commits, fan out live broadcasts.
+    // Failures here must NOT roll back the upload — at worst the
+    // dashboard misses a tick and resyncs from the next one.
+    try {
+      await this.broadcastFromOps(userId, ops);
+    } catch (err) {
+      this.logger.warn(
+        `broadcastFromOps failed for user ${userId}: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+  }
+
+  /**
+   * Translate the just-applied CRUD ops into Socket.IO broadcasts so the
+   * dashboard's /live page updates without a refresh. Handles two shapes:
+   *
+   *   - PUT location_points → emit `location:update` with the latest tick
+   *     to every workspace that has this user as a driver. To keep volume
+   *     down on big batches we only emit the newest point per driver-user.
+   *
+   *   - PUT/PATCH tracks where status flipped to 'completed' → emit
+   *     `driver:offline` so the dot greys out immediately.
+   */
+  private async broadcastFromOps(uploaderUserId: string, ops: PowerSyncOp[]) {
+    const latestPoint = new Map<
+      string,
+      {
+        latitude: number;
+        longitude: number;
+        speed: number | null;
+        heading: number | null;
+        timestamp: number;
+      }
+    >();
+    const completedTracks: string[] = [];
+
+    for (const op of ops) {
+      if (op.op !== 'PUT' && op.op !== 'PATCH') continue;
+      const row = op.row as Record<string, unknown>;
+      const rowUserId =
+        typeof row.user_id === 'string' ? row.user_id : uploaderUserId;
+
+      if (op.table === 'location_points') {
+        const ts = Number(row.timestamp);
+        if (!Number.isFinite(ts)) continue;
+        const existing = latestPoint.get(rowUserId);
+        if (existing && existing.timestamp >= ts) continue;
+        latestPoint.set(rowUserId, {
+          latitude: Number(row.latitude),
+          longitude: Number(row.longitude),
+          speed: row.speed != null ? Number(row.speed) : null,
+          heading: row.heading != null ? Number(row.heading) : null,
+          timestamp: ts,
+        });
+      } else if (op.table === 'tracks' && row.status === 'completed') {
+        completedTracks.push(rowUserId);
+      }
+    }
+
+    // Cache driver lookups so we don't hit Postgres once per op when the
+    // same driver appears in many points.
+    const driversByUser = new Map<
+      string,
+      Awaited<ReturnType<LocationsService['findDriversByDriverUserId']>>
+    >();
+    const lookup = async (driverUserId: string) => {
+      let cached = driversByUser.get(driverUserId);
+      if (!cached) {
+        cached = await this.locationsService.findDriversByDriverUserId(
+          driverUserId,
+        );
+        driversByUser.set(driverUserId, cached);
+      }
+      return cached;
+    };
+
+    for (const [driverUserId, point] of latestPoint) {
+      const driverRows = await lookup(driverUserId);
+      for (const meta of driverRows) {
+        const payload = this.locationsService.buildBroadcastPayload(point, {
+          driverId: meta.driverId,
+          driverName: meta.driverName,
+          driverCode: meta.driverCode,
+          vehicleName: meta.vehicleName,
+        });
+        this.locationsGateway.broadcastLocation(
+          meta.workspaceOwnerUserId,
+          payload,
+        );
+      }
+    }
+
+    for (const driverUserId of completedTracks) {
+      const driverRows = await lookup(driverUserId);
+      for (const meta of driverRows) {
+        this.locationsGateway.markDriverOffline(
+          meta.workspaceOwnerUserId,
+          meta.driverId,
+        );
+      }
+    }
   }
 
   private async handlePut(

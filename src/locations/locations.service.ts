@@ -63,6 +63,100 @@ export class LocationsService {
     return rows.map((r) => r.deviceId);
   }
 
+  /**
+   * Reverse lookup: given a *driver's* user_id (the user who actually
+   * recorded the location), find every (workspaceOwnerUserId, driverRow,
+   * vehicleRow) tuple that should receive a live broadcast.
+   *
+   * A single user can be a driver under multiple workspaces — e.g.
+   * jessnoelaugusto@gmail.com owns her own workspace AND is a driver
+   * under demo@demo.com — so this can return more than one row.
+   */
+  async findDriversByDriverUserId(driverUserId: string) {
+    const driverRows = await this.db.db
+      .select({
+        id: drivers.id,
+        ownerUserId: drivers.ownerUserId,
+        fullName: drivers.fullName,
+        code: drivers.code,
+        assignedVehicleId: drivers.assignedVehicleId,
+      })
+      .from(drivers)
+      .where(eq(drivers.driverUserId, driverUserId));
+
+    if (driverRows.length === 0) return [];
+
+    const vehicleIds = driverRows
+      .map((d) => d.assignedVehicleId)
+      .filter((v): v is string => !!v);
+
+    const vehicleRows = vehicleIds.length
+      ? await this.db.db
+          .select({
+            id: vehicles.id,
+            plate: vehicles.plate,
+            make: vehicles.make,
+            model: vehicles.model,
+          })
+          .from(vehicles)
+          .where(inArray(vehicles.id, vehicleIds))
+      : [];
+    const vehicleById = new Map(vehicleRows.map((v) => [v.id, v]));
+
+    return driverRows.map((d) => {
+      const veh = d.assignedVehicleId
+        ? vehicleById.get(d.assignedVehicleId)
+        : undefined;
+      const vehicleName = veh
+        ? [veh.make, veh.model].filter(Boolean).join(' ') +
+          (veh.plate ? ` · ${veh.plate}` : '')
+        : undefined;
+      return {
+        workspaceOwnerUserId: d.ownerUserId,
+        driverId: d.id,
+        driverName: d.fullName,
+        driverCode: d.code,
+        vehicleName: vehicleName || undefined,
+      };
+    });
+  }
+
+  /**
+   * Translate a raw location-point row + driver/vehicle metadata into
+   * the broadcast envelope the dashboard's /live page expects.
+   */
+  buildBroadcastPayload(
+    point: {
+      latitude: number | string;
+      longitude: number | string;
+      speed: number | string | null;
+      heading: number | string | null;
+      timestamp: number | string;
+    },
+    meta: {
+      driverId: string;
+      driverName: string;
+      driverCode: string;
+      vehicleName?: string;
+    },
+  ): LiveLocation {
+    const speedKmh = (Number(point.speed) || 0) * 3.6;
+    const ts = Number(point.timestamp);
+    const ageMs = Date.now() - ts;
+    return {
+      driverId: meta.driverId,
+      driverName: meta.driverName,
+      driverCode: meta.driverCode,
+      vehicleName: meta.vehicleName,
+      lat: Number(point.latitude),
+      lng: Number(point.longitude),
+      speed: Math.round(speedKmh * 10) / 10,
+      heading: point.heading != null ? Number(point.heading) : undefined,
+      status: deriveStatus(speedKmh, ageMs),
+      updatedAt: new Date(ts).toISOString(),
+    };
+  }
+
   async findDriverForEmit(workspaceUserId: string, driverId?: string) {
     const baseConditions = [eq(drivers.ownerUserId, workspaceUserId)];
     if (driverId) baseConditions.push(eq(drivers.id, driverId));
