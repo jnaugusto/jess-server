@@ -36,9 +36,8 @@ RUN apt-get update && apt-get install -y \
 
 # Bring bun in too (small binary), just for installing prod deps from
 # our bun.lock. Avoids needing to maintain a parallel package-lock.json.
-RUN curl -fsSL https://bun.sh/install | bash \
-    && ln -s /root/.bun/bin/bun /usr/local/bin/bun \
-    && ln -s /root/.bun/bin/bunx /usr/local/bin/bunx
+COPY --from=oven/bun:1.3 /usr/local/bin/bun /usr/local/bin/bun
+RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx
 
 WORKDIR /app
 
