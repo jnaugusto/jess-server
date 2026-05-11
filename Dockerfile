@@ -1,31 +1,30 @@
-# Build stage
-FROM node:22-slim AS builder
-
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+# syntax=docker/dockerfile:1.7
+# Build stage — uses Bun's debian image so we can `apt-get` Playwright
+# system deps in the runner without needing a separate Node toolchain.
+FROM oven/bun:1.3-debian AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Copy lockfile + manifest first to maximise layer cache hits.
+COPY package.json bun.lock ./
 
-# Install ALL dependencies including devDeps (needed for nest build)
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+# Install ALL dependencies (incl. devDeps — nest build needs them).
+RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 # Copy source
 COPY . .
 
-# Build and verify output exists
-RUN pnpm run build && \
-    echo "Build output:" && \
-    find dist -name "*.js" | head -10 && \
-    test -f dist/main.js || (echo "ERROR: dist/main.js not found!" && exit 1)
+# Build and verify output exists. NestJS still emits CommonJS to dist/.
+RUN bun run build \
+    && echo "Build output:" \
+    && find dist -name "*.js" | head -10 \
+    && test -f dist/main.js || (echo "ERROR: dist/main.js not found!" && exit 1)
 
 # Production stage
-FROM node:22-slim AS runner
+FROM oven/bun:1.3-debian AS runner
 
-# Install system dependencies for Playwright
+# System deps Playwright/chromium needs at runtime.
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -36,22 +35,19 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Use corepack consistently (same as builder)
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+# Prod-only deps. Frozen lockfile in prod = same versions everywhere.
+COPY package.json bun.lock ./
+RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --production
 
-# Copy package files and install prod only deps
-COPY package.json pnpm-lock.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --no-frozen-lockfile
-
-# Install Playwright browsers
-RUN npx playwright install --with-deps chromium
+# Install Playwright browsers + their system deps.
+# `bunx` is bun's npx-equivalent and works for the playwright CLI.
+RUN bunx playwright install --with-deps chromium
 
 # Copy built output from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy template assets if needed at runtime
+# Copy template assets needed at runtime
 COPY --from=builder /app/src/template/templates ./dist/template/templates
 
 ENV NODE_ENV=production
@@ -59,4 +55,6 @@ ENV PORT=3005
 
 EXPOSE 3005
 
-CMD ["node", "dist/main"]
+# Bun runs CommonJS just fine; this stays compatible if you ever switch
+# back to `node dist/main` since dist/ doesn't change.
+CMD ["bun", "dist/main.js"]

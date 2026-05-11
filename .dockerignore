@@ -1,6 +1,7 @@
 node_modules
 .pnpm-store
 .pnpm
+.bun
 dist
 .asset
 .git
