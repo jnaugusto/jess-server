@@ -1,11 +1,10 @@
 # syntax=docker/dockerfile:1.7
-# Build stage — uses Bun's debian image so we can `apt-get` Playwright
-# system deps in the runner without needing a separate Node toolchain.
+# Build stage — use bun for fast installs + nest build.
 FROM oven/bun:1.3-debian AS builder
 
 WORKDIR /app
 
-# Copy lockfile + manifest first to maximise layer cache hits.
+# Copy lockfile + manifest first for layer cache hits.
 COPY package.json bun.lock ./
 
 # Install ALL dependencies (incl. devDeps — nest build needs them).
@@ -21,8 +20,10 @@ RUN bun run build \
     && find dist -name "*.js" | head -10 \
     && test -f dist/main.js || (echo "ERROR: dist/main.js not found!" && exit 1)
 
-# Production stage
-FROM oven/bun:1.3-debian AS runner
+# Production stage — use Node for runtime. NestJS + Express body-parser
+# rely on Node's stream behavior; bun's Node-compat has subtle gaps that
+# can leave req.body empty. We pay the bun cost in CI/install only.
+FROM node:22-slim AS runner
 
 # System deps Playwright/chromium needs at runtime.
 RUN apt-get update && apt-get install -y \
@@ -33,15 +34,20 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
+# Bring bun in too (small binary), just for installing prod deps from
+# our bun.lock. Avoids needing to maintain a parallel package-lock.json.
+RUN curl -fsSL https://bun.sh/install | bash \
+    && ln -s /root/.bun/bin/bun /usr/local/bin/bun \
+    && ln -s /root/.bun/bin/bunx /usr/local/bin/bunx
+
 WORKDIR /app
 
-# Prod-only deps. Frozen lockfile in prod = same versions everywhere.
+# Prod-only deps via bun (reads bun.lock).
 COPY package.json bun.lock ./
 RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache \
     bun install --frozen-lockfile --production
 
-# Install Playwright browsers + their system deps.
-# `bunx` is bun's npx-equivalent and works for the playwright CLI.
+# Playwright browsers + system deps.
 RUN bunx playwright install --with-deps chromium
 
 # Copy built output from builder
@@ -55,6 +61,5 @@ ENV PORT=3005
 
 EXPOSE 3005
 
-# Bun runs CommonJS just fine; this stays compatible if you ever switch
-# back to `node dist/main` since dist/ doesn't change.
-CMD ["bun", "dist/main.js"]
+# Run on Node — stable Express body-parser, full NestJS compatibility.
+CMD ["node", "dist/main"]
