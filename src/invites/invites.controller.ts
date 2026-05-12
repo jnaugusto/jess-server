@@ -6,7 +6,6 @@ import {
   Param,
   Post,
   UseGuards,
-  UsePipes,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
@@ -34,8 +33,7 @@ export class InvitesController {
   @Post('drivers/invite')
   @ApiOperation({ summary: 'Create a driver invite (email or link mode)' })
   @ResponseMessage('Invite created.')
-  @UsePipes(new ZodValidationPipe(inviteDriverSchema))
-  create(@Session() session: UserSession, @Body() dto: InviteDriverDto) {
+  create(@Session() session: UserSession, @Body(new ZodValidationPipe(inviteDriverSchema)) dto: InviteDriverDto) {
     return this.invitesService.createInvite(
       session.user.id,
       session.user.name,

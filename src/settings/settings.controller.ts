@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, UseGuards, UsePipes } from '@nestjs/common';
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -25,8 +25,7 @@ export class SettingsController {
   @Patch()
   @ApiOperation({ summary: 'Update user settings' })
   @ResponseMessage('Settings updated.')
-  @UsePipes(new ZodValidationPipe(updateSettingsSchema))
-  update(@Session() session: UserSession, @Body() dto: UpdateSettingsDto) {
+  update(@Session() session: UserSession, @Body(new ZodValidationPipe(updateSettingsSchema)) dto: UpdateSettingsDto) {
     return this.settingsService.update(session.user.id, dto);
   }
 }

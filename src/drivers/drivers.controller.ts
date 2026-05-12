@@ -8,7 +8,6 @@ import {
   Post,
   Query,
   UseGuards,
-  UsePipes,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
@@ -49,19 +48,17 @@ export class DriversController {
   @Post()
   @ApiOperation({ summary: 'Create a driver manually' })
   @ResponseMessage('Driver created.')
-  @UsePipes(new ZodValidationPipe(createDriverSchema))
-  create(@Session() session: UserSession, @Body() dto: CreateDriverDto) {
+  create(@Session() session: UserSession, @Body(new ZodValidationPipe(createDriverSchema)) dto: CreateDriverDto) {
     return this.driversService.create(session.user.id, dto);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a driver' })
   @ResponseMessage('Driver updated.')
-  @UsePipes(new ZodValidationPipe(updateDriverSchema))
   update(
     @Session() session: UserSession,
     @Param('id') id: string,
-    @Body() dto: UpdateDriverDto,
+    @Body(new ZodValidationPipe(updateDriverSchema)) dto: UpdateDriverDto,
   ) {
     return this.driversService.update(session.user.id, id, dto);
   }

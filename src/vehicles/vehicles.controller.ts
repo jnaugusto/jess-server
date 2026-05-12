@@ -8,7 +8,6 @@ import {
   Post,
   Query,
   UseGuards,
-  UsePipes,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
@@ -56,19 +55,17 @@ export class VehiclesController {
   @Post()
   @ApiOperation({ summary: 'Create a vehicle' })
   @ResponseMessage('Vehicle created.')
-  @UsePipes(new ZodValidationPipe(createVehicleSchema))
-  create(@Session() session: UserSession, @Body() dto: CreateVehicleDto) {
+  create(@Session() session: UserSession, @Body(new ZodValidationPipe(createVehicleSchema)) dto: CreateVehicleDto) {
     return this.vehiclesService.create(session.user.id, dto);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a vehicle' })
   @ResponseMessage('Vehicle updated.')
-  @UsePipes(new ZodValidationPipe(updateVehicleSchema))
   update(
     @Session() session: UserSession,
     @Param('id') id: string,
-    @Body() dto: UpdateVehicleDto,
+    @Body(new ZodValidationPipe(updateVehicleSchema)) dto: UpdateVehicleDto,
   ) {
     return this.vehiclesService.update(session.user.id, id, dto);
   }
