@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const inviteDriverSchema = z.object({
   email: z.string().email().optional(),
   fullName: z.string().min(1).max(80),
-  code: z.string().min(1).max(20),
+  code: z.string().min(1).max(20).optional(),
   assignedVehicleId: z.string().optional(),
   role: z.literal('driver').default('driver'),
   mode: z.enum(['email', 'link']).default('email'),

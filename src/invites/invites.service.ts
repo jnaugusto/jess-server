@@ -37,6 +37,18 @@ export class InvitesService {
       throw new BadRequestException('Email is required when mode is "email".');
     }
 
+    // Auto-generate driver code if not provided (e.g. DRV-01, DRV-02, …)
+    if (!dto.code) {
+      const existingCodes = await this.db.db
+        .select({ code: drivers.code })
+        .from(drivers)
+        .where(eq(drivers.ownerUserId, userId));
+      const used = new Set(existingCodes.map((r) => r.code).filter(Boolean));
+      let n = 1;
+      while (used.has(`DRV-${String(n).padStart(2, '0')}`)) n++;
+      dto.code = `DRV-${String(n).padStart(2, '0')}`;
+    }
+
     const token = crypto.randomUUID();
     const expiresAt = this.computeExpiry(dto.expiresIn);
     const id = crypto.randomUUID();
