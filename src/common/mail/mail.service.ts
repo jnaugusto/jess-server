@@ -41,11 +41,19 @@ export class MailService {
       </div>
     `;
 
-    return this.resend.emails.send({
+    const { data, error } = await this.resend.emails.send({
       from: env.RESEND_FROM,
       to: opts.to,
       subject: `${opts.inviterName} invited you to Meridian`,
       html,
     });
+
+    if (error) {
+      this.logger.error(`Resend failed to ${opts.to}: ${JSON.stringify(error)}`);
+      return null;
+    }
+
+    this.logger.log(`Invite email sent → ${opts.to} (id: ${data?.id})`);
+    return data;
   }
 }
