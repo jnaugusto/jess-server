@@ -1,12 +1,12 @@
 replication:
   connections:
     - type: postgresql
-      uri: postgresql://postgres:jessnoelaugusto1027@postgres-service.railway.internal:5432/railway
+      uri: postgresql://postgres:jessnoelaugusto1027@endearing-enjoyment.railway.internal:5432/railway
       sslmode: disable
 
 storage:
   type: postgresql
-  uri: postgresql://postgres:jessnoelaugusto1027@postgres-service.railway.internal:5432/powersync_storage
+  uri: postgresql://postgres:jessnoelaugusto1027@endearing-enjoyment.railway.internal:5432/powersync_storage
   sslmode: disable
 
 port: 8080
