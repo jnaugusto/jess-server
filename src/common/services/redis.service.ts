@@ -10,6 +10,9 @@ export class RedisService implements OnModuleDestroy {
     this.client = new Redis({
       host: env.REDIS_HOST,
       port: env.REDIS_PORT,
+      username: env.REDIS_USERNAME,
+      password: env.REDIS_PASSWORD,
+      ...(env.REDIS_TLS === 'true' && { tls: {} }),
     });
   }
 

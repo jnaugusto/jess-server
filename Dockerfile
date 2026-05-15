@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # Build stage — use bun for fast installs + nest build.
 FROM oven/bun:1.3-debian AS builder
 
@@ -8,8 +7,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 
 # Install ALL dependencies (incl. devDeps — nest build needs them).
-RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
 # Copy source
 COPY . .
@@ -43,8 +41,7 @@ WORKDIR /app
 
 # Prod-only deps via bun (reads bun.lock).
 COPY package.json bun.lock ./
-RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production
 
 # Playwright browsers + system deps.
 RUN bunx playwright install --with-deps chromium

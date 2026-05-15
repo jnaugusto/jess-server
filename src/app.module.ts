@@ -34,6 +34,9 @@ import { DriveModule } from './drive/drive.module';
       connection: {
         host: env.REDIS_HOST,
         port: env.REDIS_PORT,
+        username: env.REDIS_USERNAME,
+        password: env.REDIS_PASSWORD,
+        ...(env.REDIS_TLS === 'true' && { tls: {} }),
       },
     }),
     BullBoardModule.forRoot({

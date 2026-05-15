@@ -14,6 +14,9 @@ export const env = createEnv({
       .string()
       .default('6379')
       .transform((s) => parseInt(s, 10)),
+    REDIS_USERNAME: z.string().default('default').describe('Redis username'),
+    REDIS_PASSWORD: z.string().describe('Redis password'),
+    REDIS_TLS: z.string().default('false').describe('Set to "true" to enable TLS (required for Redis Cloud)'),
     PLAYWRIGHT_POOL_SIZE: z
       .string()
       .default('3')
@@ -39,9 +42,9 @@ export const env = createEnv({
     GOOGLE_OAUTH_CLIENT_SECRET: z.string().describe('Google OAuth2 client secret'),
     GOOGLE_OAUTH_REFRESH_TOKEN: z.string().describe('Google OAuth2 refresh token (generated once via OAuth Playground)'),
     GOOGLE_DRIVE_FOLDER_ID: z.string().describe('Google Drive folder ID to upload files into'),
-    RESEND_API_KEY: z.string().optional().describe('Resend API key for transactional emails'),
-    RESEND_FROM: z.string().default('invites@meridian.app').describe('Email sender address for invites'),
-    PUBLIC_WEB_URL: z.string().url().default('http://localhost:5173').describe('Public web URL for invite accept links'),
+    RESEND_API_KEY: z.string().describe('Resend API key for transactional emails'),
+    RESEND_FROM: z.string().describe('Email sender address for invites'),
+    PUBLIC_WEB_URL: z.string().url().describe('Public web URL for invite accept links'),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
