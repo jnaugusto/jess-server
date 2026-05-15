@@ -1,6 +1,6 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+import { Public, Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
 import { InvitesService } from './invites.service';
@@ -10,11 +10,23 @@ import { InvitesService } from './invites.service';
 export class InvitesPublicController {
   constructor(private readonly invitesService: InvitesService) {}
 
+  @Public()
   @Get(':token')
   @ApiOperation({ summary: 'Look up invite metadata by token (public)' })
   @ResponseMessage('Invite found.')
   lookup(@Param('token') token: string) {
     return this.invitesService.lookupByToken(token);
+  }
+
+  @Public()
+  @Post(':token/register')
+  @ApiOperation({ summary: 'Create an account and accept the invite in one step (new drivers)' })
+  @ResponseMessage('Account created and invite accepted.')
+  register(
+    @Param('token') token: string,
+    @Body() body: { password: string },
+  ) {
+    return this.invitesService.registerAndAccept(token, body.password);
   }
 
   @Post(':token/accept')

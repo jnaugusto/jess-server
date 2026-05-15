@@ -1,9 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   GoneException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 import { eq, and, isNull, desc } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { driverInvites, drivers } from '../database/schema';
@@ -16,6 +19,7 @@ export class InvitesService {
   constructor(
     private readonly db: DatabaseService,
     private readonly mail: MailService,
+    private readonly authService: AuthService,
   ) {}
 
   async listPending(userId: string) {
@@ -143,11 +147,76 @@ export class InvitesService {
     return {
       id: invite.id,
       fullName: invite.fullName,
+      email: invite.email ?? null,
       code: invite.code,
       role: invite.role,
       message: invite.message,
       expiresAt: invite.expiresAt,
     };
+  }
+
+  /** Create a Better Auth account and accept the invite in one shot. */
+  async registerAndAccept(token: string, password: string) {
+    // 1. Validate invite
+    const [invite] = await this.db.db
+      .select()
+      .from(driverInvites)
+      .where(eq(driverInvites.token, token))
+      .limit(1);
+
+    if (!invite) throw new NotFoundException('Invite not found.');
+    if (invite.revokedAt) throw new GoneException('Invite has been revoked.');
+    if (invite.expiresAt < new Date()) throw new GoneException('Invite has expired.');
+    if (invite.acceptedAt) throw new GoneException('Invite already accepted.');
+    if (!invite.email) {
+      throw new BadRequestException(
+        'This invite has no email address. Contact your fleet owner.',
+      );
+    }
+
+    // 2. Create Better Auth account (handles password hashing, session creation)
+    let signUpData: { token: string | null; user: { id: string } };
+    try {
+      signUpData = (await (this.authService.api as any).signUpEmail({
+        body: { email: invite.email, password, name: invite.fullName },
+        asResponse: false,
+      })) as { token: string | null; user: { id: string } };
+    } catch (err: unknown) {
+      const status = (err as any)?.status;
+      if (status === 422 || status === 409) {
+        throw new ConflictException(
+          'An account with this email already exists. Try signing in instead.',
+        );
+      }
+      throw new InternalServerErrorException('Failed to create account. Please try again.');
+    }
+
+    const newUserId = signUpData.user.id;
+
+    // 3. Guard — freshly created account can't be in a fleet yet, but
+    //    check anyway in case of a race or duplicate registration attempt.
+    await this.assertNotAlreadyInFleet(newUserId);
+
+    // 4. Create driver record + mark invite accepted — one transaction
+    const driverId = crypto.randomUUID();
+    await this.db.transaction(async (tx) => {
+      await tx.insert(drivers).values({
+        id: driverId,
+        ownerUserId: invite.ownerUserId,
+        driverUserId: newUserId,
+        fullName: invite.fullName,
+        code: invite.code,
+        status: 'active',
+        assignedVehicleId: invite.assignedVehicleId,
+      });
+
+      await tx
+        .update(driverInvites)
+        .set({ acceptedAt: new Date(), acceptedByUserId: newUserId })
+        .where(eq(driverInvites.id, invite.id));
+    });
+
+    return { sessionToken: signUpData.token, driverId };
   }
 
   async acceptInvite(token: string, acceptingUserId: string) {
@@ -161,6 +230,8 @@ export class InvitesService {
     if (invite.revokedAt) throw new GoneException('Invite has been revoked.');
     if (invite.expiresAt < new Date()) throw new GoneException('Invite has expired.');
     if (invite.acceptedAt) throw new GoneException('Invite already accepted.');
+
+    await this.assertNotAlreadyInFleet(acceptingUserId);
 
     const driverId = crypto.randomUUID();
 
@@ -182,6 +253,21 @@ export class InvitesService {
     });
 
     return { driverId };
+  }
+
+  /** Throws if the user already belongs to a fleet. */
+  private async assertNotAlreadyInFleet(userId: string): Promise<void> {
+    const [existing] = await this.db.db
+      .select({ id: drivers.id })
+      .from(drivers)
+      .where(eq(drivers.driverUserId, userId))
+      .limit(1);
+
+    if (existing) {
+      throw new ConflictException(
+        'This account is already part of a fleet. A driver can only belong to one fleet at a time.',
+      );
+    }
   }
 
   private computeExpiry(expiresIn?: string): Date {

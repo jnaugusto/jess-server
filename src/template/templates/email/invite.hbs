@@ -1,0 +1,106 @@
+{{> email-header
+  heroBadge="Driver Invite"
+  heroTitle="You've been invited<br>to Meridian."
+  heroSubtext="Join your fleet owner on the platform built for modern drivers."
+}}
+
+<!-- CONTENT -->
+<div style="background:#ffffff;padding:32px 36px;">
+
+  <p style="font-size:15px;color:#1a1d24;font-weight:600;margin:0 0 10px;font-family:Georgia,'Times New Roman',serif;">Hi {{fullName}},</p>
+  <p style="font-size:13px;color:#475569;line-height:1.75;margin:0 0 22px;">
+    <strong style="color:#1a1d24;">{{inviterName}}</strong> has invited you to join Meridian as a driver.
+    Accept your invite below to get set up and start tracking your trips.
+  </p>
+
+  {{#if message}}
+  <div style="background:#f7f8fa;border-left:3px solid #d4ff4f;border-radius:0 4px 4px 0;padding:13px 16px;margin-bottom:22px;">
+    <p style="font-size:13px;color:#475569;line-height:1.65;margin:0;font-style:italic;">"{{message}}"</p>
+  </div>
+  {{/if}}
+
+  <!-- Details card -->
+  <div style="background:#f7f8fa;border:1px solid #e4e7ec;border-radius:8px;padding:16px;margin-bottom:22px;">
+    <div style="font-size:9px;font-weight:700;color:#94a3b8;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:12px;font-family:monospace;">Your details</div>
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #eef0f3;font-size:13px;color:#64748b;">Name</td>
+        <td style="padding:8px 0;border-bottom:1px solid #eef0f3;font-size:13px;color:#1a1d24;font-weight:500;text-align:right;">{{fullName}}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;border-bottom:1px solid #eef0f3;font-size:13px;color:#64748b;">Invited by</td>
+        <td style="padding:8px 0;border-bottom:1px solid #eef0f3;font-size:13px;color:#1a1d24;font-weight:500;text-align:right;">{{inviterName}}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;font-size:13px;color:#64748b;">Role</td>
+        <td style="padding:8px 0;font-size:13px;color:#1a1d24;font-weight:500;text-align:right;">Driver</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Steps -->
+  <div style="font-size:9px;font-weight:700;color:#94a3b8;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:12px;font-family:monospace;">Getting started</div>
+
+  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:8px;">
+    <tr><td style="background:#f7f8fa;border:1px solid #e4e7ec;border-radius:8px;padding:12px 14px;">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+        <td style="width:28px;vertical-align:top;padding-right:12px;padding-top:1px;">
+          <div style="width:24px;height:24px;border-radius:50%;background:#0a0b0d;text-align:center;line-height:24px;font-size:11px;font-weight:700;color:#d4ff4f;font-family:monospace;">1</div>
+        </td>
+        <td>
+          <strong style="font-size:13px;color:#1a1d24;display:block;margin-bottom:2px;">Accept this invite</strong>
+          <span style="font-size:12px;color:#64748b;">Tap the button below to confirm and set up your account</span>
+        </td>
+      </tr></table>
+    </td></tr>
+  </table>
+
+  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:8px;">
+    <tr><td style="background:#f7f8fa;border:1px solid #e4e7ec;border-radius:8px;padding:12px 14px;">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+        <td style="width:28px;vertical-align:top;padding-right:12px;padding-top:1px;">
+          <div style="width:24px;height:24px;border-radius:50%;background:#0a0b0d;text-align:center;line-height:24px;font-size:11px;font-weight:700;color:#d4ff4f;font-family:monospace;">2</div>
+        </td>
+        <td>
+          <strong style="font-size:13px;color:#1a1d24;display:block;margin-bottom:2px;">Download Meridian</strong>
+          <span style="font-size:12px;color:#64748b;">Install the app on iOS or Android and sign in with your email</span>
+        </td>
+      </tr></table>
+    </td></tr>
+  </table>
+
+  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:26px;">
+    <tr><td style="background:#f7f8fa;border:1px solid #e4e7ec;border-radius:8px;padding:12px 14px;">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+        <td style="width:28px;vertical-align:top;padding-right:12px;padding-top:1px;">
+          <div style="width:24px;height:24px;border-radius:50%;background:#0a0b0d;text-align:center;line-height:24px;font-size:11px;font-weight:700;color:#d4ff4f;font-family:monospace;">3</div>
+        </td>
+        <td>
+          <strong style="font-size:13px;color:#1a1d24;display:block;margin-bottom:2px;">Start your first trip</strong>
+          <span style="font-size:12px;color:#64748b;">Tap Start Tracking — your fleet owner sees your routes in real time</span>
+        </td>
+      </tr></table>
+    </td></tr>
+  </table>
+
+  <!-- CTA -->
+  <div style="text-align:center;margin-bottom:12px;">
+    <a href="{{acceptUrl}}" style="display:inline-block;background:#d4ff4f;color:#0a0b0d;font-size:14px;font-weight:700;padding:14px 36px;border-radius:6px;text-decoration:none;letter-spacing:0.03em;">Accept invite &rarr;</a>
+  </div>
+  <p style="text-align:center;font-size:11px;color:#94a3b8;margin:0 0 24px;font-family:monospace;">
+    This invite link expires in <strong style="color:#64748b;">{{expiresInLabel}}</strong> — accept before it does.
+  </p>
+
+  <!-- Manual link fallback -->
+  <div style="background:#f7f8fa;border:1px solid #e4e7ec;border-radius:8px;padding:16px;margin-bottom:4px;">
+    <p style="font-size:11px;color:#64748b;margin:0 0 10px;line-height:1.6;">
+      <strong style="color:#1a1d24;">Button not working?</strong> Copy and paste the link below directly into your browser:
+    </p>
+    <div style="background:#ffffff;border:1px dashed #cbd5e1;border-radius:6px;padding:10px 12px;word-break:break-all;">
+      <a href="{{acceptUrl}}" style="font-size:11px;color:#0a0b0d;font-family:monospace;text-decoration:none;line-height:1.7;">{{acceptUrl}}</a>
+    </div>
+  </div>
+
+</div>
+
+{{> email-footer year=year}}

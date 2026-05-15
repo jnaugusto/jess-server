@@ -1,4 +1,5 @@
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -8,6 +9,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 
@@ -166,6 +168,13 @@ export const drivers = pgTable(
   (table) => ({
     ownerIdx: index('idx_drivers_owner').on(table.ownerUserId),
     driverUserIdx: index('idx_drivers_driver_user').on(table.driverUserId),
+    // A user can only belong to one fleet at a time.
+    // Partial index: only enforced when driverUserId is not null, so
+    // uninvited/manually-created driver rows (driverUserId = NULL) are
+    // still allowed to coexist freely.
+    driverUserUniq: uniqueIndex('uq_drivers_driver_user_id')
+      .on(table.driverUserId)
+      .where(sql`${table.driverUserId} is not null`),
   }),
 );
 
