@@ -1,0 +1,35 @@
+replication:
+  connections:
+    - type: postgresql
+      uri: postgresql://postgres:NHIIHZHhhQGfXMfXHlwxeVHZqzOKPvoT@postgres.railway.internal:5432/railway
+      sslmode: disable
+
+storage:
+  type: postgresql
+  uri: postgresql://postgres:NHIIHZHhhQGfXMfXHlwxeVHZqzOKPvoT@postgres.railway.internal:5432/powersync_storage
+  sslmode: disable
+
+port: 8080
+
+sync_rules:
+  content: |
+    bucket_definitions:
+      user_data:
+        parameters: SELECT request.user_id() as user_id
+        data:
+          - SELECT * FROM tracks WHERE user_id = bucket.user_id
+          - SELECT * FROM location_points WHERE user_id = bucket.user_id
+
+client_auth:
+  supabase: false
+  audience: ['https://powersync.jnaugusto.com']
+  jwks:
+    keys:
+      - kty: 'RSA'
+        n: 'p-f7-sRaH6nB9N-oQEgLJdSbo4CtD7saurxpydqzKovkqoiA8q_vAsvKDCP3RPWU2g8MKGFRrkZUkVWl0ARpwUWT5XDCOX4JlDkkR0almXb8BCTIQXj3SmAqrwbutxOIwjEl7MGqqd53dIUSBPhUcotszSpRXMWT6dz_ovNVGjUNzZS4nMZQJ-BL_cZVyi2wOEYkXpSGH1tzw6UKcjRYzkqQxzGfrmFV5Irv2eCJHMzeoNB14FLKh9FswbvRFwuso6DSpK9kvE_FeR1pGciNfQZ5t5eFWq4xM4TUWVGJg5ObhVaOJ-awaABMRanxHYhAXfJo2kt_lo1CDLyazkittQ'
+        e: 'AQAB'
+        alg: 'RS256'
+        kid: 'powersync-key-1'
+
+telemetry:
+  disable_telemetry_sharing: true
