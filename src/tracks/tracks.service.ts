@@ -1,18 +1,46 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { tracks, locationPoints } from '../database/schema';
+import { tracks, locationPoints, drivers } from '../database/schema';
 
 @Injectable()
 export class TracksService {
   constructor(private readonly db: DatabaseService) {}
 
   async getTracks(userId: string) {
-    return this.db.db
+    // Tracks belong to driver user accounts, not the fleet owner.
+    // Resolve all linked driver user IDs first, then fetch their tracks.
+    const driverRows = await this.db.db
+      .select({ driverUserId: drivers.driverUserId, id: drivers.id, fullName: drivers.fullName })
+      .from(drivers)
+      .where(eq(drivers.ownerUserId, userId));
+
+    const linked = driverRows.filter((d) => d.driverUserId);
+    if (linked.length === 0) return [];
+
+    const driverUserIds = linked.map((d) => d.driverUserId as string);
+    const driverByUserId = new Map(linked.map((d) => [d.driverUserId!, d]));
+
+    const rows = await this.db.db
       .select()
       .from(tracks)
-      .where(eq(tracks.userId, userId))
+      .where(inArray(tracks.userId, driverUserIds))
       .orderBy(desc(tracks.startTime));
+
+    return rows.map((t) => {
+      const driver = driverByUserId.get(t.userId);
+      return {
+        id: t.id,
+        name: t.title,
+        driverId: driver?.id ?? t.userId,
+        driverName: driver?.fullName ?? 'Unknown',
+        distance: t.distance,
+        duration: t.durationSec,
+        startTime: new Date(t.startTime).toISOString(),
+        endTime: t.endTime ? new Date(t.endTime).toISOString() : null,
+        status: t.status === 'active' ? 'in_progress' : t.status,
+      };
+    });
   }
 
   async getTracksWithPoints(userId: string) {
