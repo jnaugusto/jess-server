@@ -44,6 +44,10 @@ const corsOrigins = (
     origin: corsOrigins,
     credentials: true,
   },
+  // Detect dead sockets (force-killed apps) in ~15 s instead of the
+  // default ~45 s so the dashboard ghost clears quickly.
+  pingInterval: 10000,
+  pingTimeout: 5000,
 })
 export class LocationsGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
@@ -114,12 +118,28 @@ export class LocationsGateway
   }
 
   private async announceAvailable(driverUserId: string) {
-    const driverRows =
-      await this.locationsService.findDriversByDriverUserId(driverUserId);
+    const [driverRows, lastLoc] = await Promise.all([
+      this.locationsService.findDriversByDriverUserId(driverUserId),
+      this.locationsService.getLastLocationForDriverUser(driverUserId),
+    ]);
     for (const meta of driverRows) {
+      const payload = lastLoc
+        ? ({
+            driverId: meta.driverId,
+            driverName: meta.driverName,
+            driverCode: meta.driverCode,
+            vehicleName: meta.vehicleName,
+            lat: lastLoc.lat,
+            lng: lastLoc.lng,
+            speed: lastLoc.speed,
+            heading: lastLoc.heading,
+            status: 'standby' as const,
+            updatedAt: new Date(lastLoc.timestamp).toISOString(),
+          } satisfies LiveLocationBroadcast)
+        : { driverId: meta.driverId };
       this.server
         .to(`user:${meta.workspaceOwnerUserId}`)
-        .emit('driver:available', { driverId: meta.driverId });
+        .emit('driver:available', payload);
     }
   }
 

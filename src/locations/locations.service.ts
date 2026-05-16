@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, between, eq, inArray, sql } from 'drizzle-orm';
+import { and, between, desc, eq, inArray, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { drivers, locationPoints, vehicles } from '../database/schema';
 import { locationsOld as locations } from '../database/schema.old';
@@ -175,6 +175,36 @@ export class LocationsService {
       heading: point.heading != null ? Number(point.heading) : undefined,
       status: deriveStatus(speedKmh, ageMs),
       updatedAt: new Date(ts).toISOString(),
+    };
+  }
+
+  async getLastLocationForDriverUser(driverUserId: string): Promise<{
+    lat: number;
+    lng: number;
+    speed: number;
+    heading?: number;
+    timestamp: number;
+  } | null> {
+    const rows = await this.db.db
+      .select({
+        latitude: locationPoints.latitude,
+        longitude: locationPoints.longitude,
+        speed: locationPoints.speed,
+        heading: locationPoints.heading,
+        timestamp: locationPoints.timestamp,
+      })
+      .from(locationPoints)
+      .where(eq(locationPoints.userId, driverUserId))
+      .orderBy(desc(locationPoints.timestamp))
+      .limit(1);
+    if (rows.length === 0) return null;
+    const p = rows[0];
+    return {
+      lat: Number(p.latitude),
+      lng: Number(p.longitude),
+      speed: Math.round((Number(p.speed) || 0) * 3.6 * 10) / 10,
+      heading: p.heading != null ? Number(p.heading) : undefined,
+      timestamp: Number(p.timestamp),
     };
   }
 
