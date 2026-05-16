@@ -3,6 +3,35 @@ import { eq, desc, inArray, and } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { tracks, locationPoints, drivers, vehicles } from '../database/schema';
 
+const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN ?? '';
+
+async function geocodePoint(lat: number, lng: number): Promise<object | null> {
+  if (!MAPBOX_TOKEN) return null;
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,neighborhood,locality,place&limit=1`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function extractPlace(geocode: object | null): string | undefined {
+  if (!geocode) return undefined;
+  const feature = (geocode as any)?.features?.[0];
+  if (!feature) return undefined;
+  // Walk context array for place > locality > neighborhood
+  const ctx: Array<{ id: string; text: string }> = feature.context ?? [];
+  for (const kind of ['place', 'locality', 'neighborhood']) {
+    const found = ctx.find((c) => c.id?.startsWith(kind + '.'));
+    if (found?.text) return found.text;
+  }
+  // Fallback: first comma segment of place_name
+  const name = feature.place_name as string | undefined;
+  return name?.split(',')[0].trim() || undefined;
+}
+
 type TripEvent = {
   id: string;
   type: 'start' | 'stop' | 'idle' | 'speeding' | 'harsh_braking' | 'geofence';
@@ -153,6 +182,8 @@ export class TracksService {
 
     return rows.map((t) => {
       const driver = driverByUserId.get(t.userId);
+      const startGeo = t.startGeocode ? (() => { try { return JSON.parse(t.startGeocode!); } catch { return null; } })() : null;
+      const endGeo   = t.endGeocode   ? (() => { try { return JSON.parse(t.endGeocode!);   } catch { return null; } })() : null;
       return {
         id: t.id,
         name: t.title,
@@ -163,6 +194,8 @@ export class TracksService {
         startTime: new Date(t.startTime).toISOString(),
         endTime: t.endTime ? new Date(t.endTime).toISOString() : null,
         status: t.status === 'active' ? 'in_progress' : t.status,
+        startAddress: extractPlace(startGeo),
+        endAddress: extractPlace(endGeo),
       };
     });
   }
@@ -257,6 +290,30 @@ export class TracksService {
     const elevationGain = computeElevationGain(points.map((p) => ({ elevation: p.elevation ?? null })));
     const events       = deriveEvents(track.id, track.startTime, track.endTime, track.status, points);
 
+    // Lazy geocode: fetch and cache start/end addresses the first time this trip is viewed.
+    let startGeocodeJson = track.startGeocode ?? null;
+    let endGeocodeJson   = track.endGeocode   ?? null;
+
+    if (!startGeocodeJson && points.length > 0) {
+      const geo = await geocodePoint(points[0].lat, points[0].lng);
+      if (geo) {
+        startGeocodeJson = JSON.stringify(geo);
+        await this.db.query('UPDATE tracks SET start_geocode = $1 WHERE id = $2', [startGeocodeJson, track.id]).catch(() => {});
+      }
+    }
+
+    if (!endGeocodeJson && points.length > 0) {
+      const last = points[points.length - 1];
+      const geo = await geocodePoint(last.lat, last.lng);
+      if (geo) {
+        endGeocodeJson = JSON.stringify(geo);
+        await this.db.query('UPDATE tracks SET end_geocode = $1 WHERE id = $2', [endGeocodeJson, track.id]).catch(() => {});
+      }
+    }
+
+    const startGeocodeObj = startGeocodeJson ? (() => { try { return JSON.parse(startGeocodeJson); } catch { return null; } })() : null;
+    const endGeocodeObj   = endGeocodeJson   ? (() => { try { return JSON.parse(endGeocodeJson);   } catch { return null; } })() : null;
+
     return {
       id: track.id,
       name: track.title,
@@ -273,6 +330,9 @@ export class TracksService {
       idleTime,
       elevationGain,
       events,
+      notes: (track as any).notes ?? null,
+      startAddress: extractPlace(startGeocodeObj),
+      endAddress: extractPlace(endGeocodeObj),
       points,
     };
   }

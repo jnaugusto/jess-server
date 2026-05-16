@@ -27,6 +27,12 @@ export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
     try {
       await this.databaseService.query('SELECT 1');
       this.logger.log('Database connected successfully');
+      await this.databaseService.query(
+        `ALTER TABLE tracks ADD COLUMN IF NOT EXISTS start_geocode text`,
+      );
+      await this.databaseService.query(
+        `ALTER TABLE tracks ADD COLUMN IF NOT EXISTS end_geocode text`,
+      );
     } catch (e) {
       this.logger.error(
         `Failed to connect to database: ${e instanceof Error ? e.message : String(e)}`,

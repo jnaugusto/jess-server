@@ -93,6 +93,8 @@ export const tracks = pgTable(
     maxSpeed: doublePrecision('max_speed').notNull().default(0),
     durationSec: bigint('duration_sec', { mode: 'number' }).notNull().default(0),
     deviceId: text('device_id'),
+    startGeocode: text('start_geocode'),
+    endGeocode: text('end_geocode'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
