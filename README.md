@@ -1,6 +1,6 @@
 # jess-server
 
-The NestJS backend powering [jess.dev](https://jess.dev) — my personal portfolio and project hub. One API handles everything: AI chat, image processing, PDF generation, fleet tracking, real-time location sync, Google Drive integration, and more.
+The NestJS backend powering [jnaugusto.com](https://jnaugusto.com) — my personal portfolio and project hub. One API handles everything: AI chat, image processing, PDF generation, fleet tracking, real-time location sync, Google Drive integration, and more.
 
 > The fleet tracking module ([Meridian](https://github.com/jnaugusto/jess-tracking-web)) lives here alongside the rest of the portfolio backend for easier management.
 
