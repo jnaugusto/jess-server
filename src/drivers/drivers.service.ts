@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, desc, ilike, or } from 'drizzle-orm';
+import { eq, and, desc, ilike, or, inArray, count, sum } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { drivers } from '../database/schema';
+import { drivers, tracks, vehicles } from '../database/schema';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 
@@ -17,11 +17,49 @@ export class DriversService {
         or(ilike(drivers.fullName, `%${q}%`), ilike(drivers.code, `%${q}%`))!,
       );
     }
-    return this.db.db
+
+    const rows = await this.db.db
       .select()
       .from(drivers)
       .where(and(...conditions))
       .orderBy(desc(drivers.createdAt));
+
+    const driverUserIds = rows
+      .filter((d) => d.driverUserId)
+      .map((d) => d.driverUserId as string);
+
+    const [stats, vehicleRows] = await Promise.all([
+      driverUserIds.length > 0
+        ? this.db.db
+            .select({
+              userId: tracks.userId,
+              totalTrips: count(tracks.id),
+              totalDistance: sum(tracks.distance),
+            })
+            .from(tracks)
+            .where(inArray(tracks.userId, driverUserIds))
+            .groupBy(tracks.userId)
+        : [],
+      this.db.db
+        .select({ id: vehicles.id, code: vehicles.code, plate: vehicles.plate })
+        .from(vehicles)
+        .where(eq(vehicles.ownerUserId, userId)),
+    ]);
+
+    const statsMap = new Map(stats.map((s) => [s.userId, s]));
+    const vehicleMap = new Map(vehicleRows.map((v) => [v.id, v]));
+
+    return rows.map((d) => {
+      const s = statsMap.get(d.driverUserId ?? '');
+      const v = d.assignedVehicleId ? vehicleMap.get(d.assignedVehicleId) : null;
+      return {
+        ...d,
+        totalTrips: Number(s?.totalTrips ?? 0),
+        totalDistance: Number(s?.totalDistance ?? 0),
+        lastActive: d.lastActiveAt?.toISOString() ?? null,
+        assignedVehicle: v ? `${v.code} · ${v.plate}` : null,
+      };
+    });
   }
 
   async getById(userId: string, id: string) {
