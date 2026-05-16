@@ -1,7 +1,131 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { eq, desc, inArray, and } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { tracks, locationPoints, drivers } from '../database/schema';
+import { tracks, locationPoints, drivers, vehicles } from '../database/schema';
+
+type TripEvent = {
+  id: string;
+  type: 'start' | 'stop' | 'idle' | 'speeding' | 'harsh_braking' | 'geofence';
+  timestamp: string;
+  description: string;
+  location?: string;
+};
+
+// Speed is stored in m/s in location_points (raw GPS value).
+const SPEED_ALERT_MS = 25;  // 90 km/h
+const IDLE_SPEED_MS  = 0.56; // 2 km/h
+const IDLE_MIN_MS    = 2 * 60 * 1000; // 2 min stop before it's logged
+
+function deriveEvents(
+  trackId: string,
+  startTime: number,
+  endTime: number | null | undefined,
+  status: string,
+  points: Array<{ timestamp: number; speed: number | null }>,
+): TripEvent[] {
+  const events: TripEvent[] = [];
+
+  events.push({
+    id: `${trackId}-start`,
+    type: 'start',
+    timestamp: new Date(startTime).toISOString(),
+    description: 'Trip started',
+  });
+
+  let speedingActive = false;
+  let speedingIdx = 0;
+  let idleStart: number | null = null;
+  let idleIdx = 0;
+
+  for (const p of points) {
+    const s = p.speed ?? 0;
+
+    // Speeding — emit one event per speeding episode (leading edge).
+    if (s >= SPEED_ALERT_MS && !speedingActive) {
+      speedingActive = true;
+      events.push({
+        id: `${trackId}-speeding-${speedingIdx++}`,
+        type: 'speeding',
+        timestamp: new Date(p.timestamp).toISOString(),
+        description: `Speed alert · exceeded ${Math.round(SPEED_ALERT_MS * 3.6)} km/h`,
+      });
+    } else if (s < SPEED_ALERT_MS) {
+      speedingActive = false;
+    }
+
+    // Idle — log when a stop lasting ≥ 2 min ends (or at end of trip).
+    if (s <= IDLE_SPEED_MS && idleStart === null) {
+      idleStart = p.timestamp;
+    } else if (s > IDLE_SPEED_MS && idleStart !== null) {
+      const dur = p.timestamp - idleStart;
+      if (dur >= IDLE_MIN_MS) {
+        events.push({
+          id: `${trackId}-idle-${idleIdx++}`,
+          type: 'idle',
+          timestamp: new Date(idleStart).toISOString(),
+          description: `Stopped for ${Math.round(dur / 60000)} min`,
+        });
+      }
+      idleStart = null;
+    }
+  }
+
+  // Flush idle period that ran to end of trip.
+  if (idleStart !== null && points.length > 0) {
+    const dur = points[points.length - 1].timestamp - idleStart;
+    if (dur >= IDLE_MIN_MS) {
+      events.push({
+        id: `${trackId}-idle-${idleIdx}`,
+        type: 'idle',
+        timestamp: new Date(idleStart).toISOString(),
+        description: `Stopped for ${Math.round(dur / 60000)} min`,
+      });
+    }
+  }
+
+  // Stop event only for completed trips.
+  if (status !== 'active') {
+    const stopTs = endTime ?? (points.length > 0 ? points[points.length - 1].timestamp : startTime);
+    events.push({
+      id: `${trackId}-stop`,
+      type: 'stop',
+      timestamp: new Date(stopTs).toISOString(),
+      description: 'Trip completed',
+    });
+  }
+
+  return events.sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
+}
+
+function computeIdleTimeSec(points: Array<{ timestamp: number; speed: number | null }>): number {
+  let idleSec = 0;
+  let start: number | null = null;
+  for (const p of points) {
+    const s = p.speed ?? 0;
+    if (s <= IDLE_SPEED_MS && start === null) {
+      start = p.timestamp;
+    } else if (s > IDLE_SPEED_MS && start !== null) {
+      idleSec += Math.round((p.timestamp - start) / 1000);
+      start = null;
+    }
+  }
+  if (start !== null && points.length > 0) {
+    idleSec += Math.round((points[points.length - 1].timestamp - start) / 1000);
+  }
+  return idleSec;
+}
+
+function computeElevationGain(points: Array<{ elevation: number | null }>): number {
+  let gain = 0;
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1].elevation;
+    const curr = points[i].elevation;
+    if (prev != null && curr != null && curr > prev) gain += curr - prev;
+  }
+  return Math.round(gain);
+}
 
 @Injectable()
 export class TracksService {
@@ -91,7 +215,11 @@ export class TracksService {
 
     // Tracks are owned by driver user accounts — verify through the drivers table.
     const [driver] = await this.db.db
-      .select({ id: drivers.id, fullName: drivers.fullName })
+      .select({
+        id: drivers.id,
+        fullName: drivers.fullName,
+        assignedVehicleId: drivers.assignedVehicleId,
+      })
       .from(drivers)
       .where(and(eq(drivers.ownerUserId, userId), eq(drivers.driverUserId, track.userId)))
       .limit(1);
@@ -111,11 +239,30 @@ export class TracksService {
       .where(eq(locationPoints.trackId, trackId))
       .orderBy(locationPoints.timestamp);
 
+    // Resolve assigned vehicle name.
+    let vehicleName: string | undefined;
+    if (driver.assignedVehicleId) {
+      const [veh] = await this.db.db
+        .select({ make: vehicles.make, model: vehicles.model, plate: vehicles.plate })
+        .from(vehicles)
+        .where(eq(vehicles.id, driver.assignedVehicleId))
+        .limit(1);
+      if (veh) {
+        vehicleName = [veh.make, veh.model].filter(Boolean).join(' ') || undefined;
+        if (veh.plate) vehicleName = `${vehicleName ?? ''}${vehicleName ? ' · ' : ''}${veh.plate}`;
+      }
+    }
+
+    const idleTime     = computeIdleTimeSec(points);
+    const elevationGain = computeElevationGain(points.map((p) => ({ elevation: p.elevation ?? null })));
+    const events       = deriveEvents(track.id, track.startTime, track.endTime, track.status, points);
+
     return {
       id: track.id,
       name: track.title,
       driverId: driver.id,
       driverName: driver.fullName,
+      vehicleName,
       distance: track.distance * 1000, // km → metres
       duration: track.durationSec,
       startTime: new Date(track.startTime).toISOString(),
@@ -123,9 +270,9 @@ export class TracksService {
       status: track.status === 'active' ? 'in_progress' : track.status,
       avgSpeed: track.avgSpeed,
       topSpeed: track.maxSpeed,
-      idleTime: 0,
-      elevationGain: 0,
-      events: [],
+      idleTime,
+      elevationGain,
+      events,
       points,
     };
   }
