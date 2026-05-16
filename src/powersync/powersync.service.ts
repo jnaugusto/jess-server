@@ -74,23 +74,35 @@ export class PowerSyncService {
     const ops = transaction.ops;
 
     await this.databaseService.transaction(async (tx) => {
-      for (const op of ops) {
-        const { table, op: operation, row } = op;
+      for (let i = 0; i < ops.length; i++) {
+        const { table, op: operation, row } = ops[i];
 
         if (row.user_id && row.user_id !== userId) {
           throw new Error('Unauthorized');
         }
 
-        switch (operation) {
-          case 'PUT':
-            await this.handlePut(tx, table, row);
-            break;
-          case 'PATCH':
-            await this.handlePatch(tx, table, row);
-            break;
-          case 'DELETE':
-            await this.handleDelete(tx, table, row);
-            break;
+        const sp = `sp_${i}`;
+        await tx.execute(sql.raw(`SAVEPOINT ${sp}`));
+
+        try {
+          switch (operation) {
+            case 'PUT':
+              await this.handlePut(tx, table, row);
+              break;
+            case 'PATCH':
+              await this.handlePatch(tx, table, row);
+              break;
+            case 'DELETE':
+              await this.handleDelete(tx, table, row);
+              break;
+          }
+          await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
+        } catch (err) {
+          await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${sp}`));
+          const rowId = typeof row.id === 'string' ? row.id : '?';
+          this.logger.warn(
+            `Skipping permanently-failing op ${operation} ${table}[${rowId}]: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
       }
     });
