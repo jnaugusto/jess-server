@@ -352,4 +352,63 @@ export class TracksService {
       accuracy: p.accuracy ?? undefined,
     }));
   }
+
+  async backfillGeocode() {
+    if (!MAPBOX_TOKEN) return;
+
+    // Find tracks that are missing at least one geocode and have location points.
+    const rows = await this.db.query<{
+      id: string;
+      start_geocode: string | null;
+      end_geocode: string | null;
+      first_lat: number;
+      first_lng: number;
+      last_lat: number;
+      last_lng: number;
+    }>(`
+      SELECT
+        t.id,
+        t.start_geocode,
+        t.end_geocode,
+        first_pts.latitude  AS first_lat,
+        first_pts.longitude AS first_lng,
+        last_pts.latitude   AS last_lat,
+        last_pts.longitude  AS last_lng
+      FROM tracks t
+      JOIN LATERAL (
+        SELECT latitude, longitude FROM location_points
+        WHERE track_id = t.id ORDER BY timestamp ASC LIMIT 1
+      ) first_pts ON true
+      JOIN LATERAL (
+        SELECT latitude, longitude FROM location_points
+        WHERE track_id = t.id ORDER BY timestamp DESC LIMIT 1
+      ) last_pts ON true
+      WHERE t.start_geocode IS NULL OR t.end_geocode IS NULL
+    `);
+
+    for (const row of rows.rows) {
+      if (!row.start_geocode) {
+        const geo = await geocodePoint(row.first_lat, row.first_lng);
+        if (geo) {
+          await this.db.query(
+            'UPDATE tracks SET start_geocode = $1 WHERE id = $2',
+            [JSON.stringify(geo), row.id],
+          ).catch(() => {});
+        }
+      }
+
+      if (!row.end_geocode) {
+        const geo = await geocodePoint(row.last_lat, row.last_lng);
+        if (geo) {
+          await this.db.query(
+            'UPDATE tracks SET end_geocode = $1 WHERE id = $2',
+            [JSON.stringify(geo), row.id],
+          ).catch(() => {});
+        }
+      }
+
+      // Throttle: 5 requests/sec max (Mapbox free tier is generous but let's be nice).
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
 }
