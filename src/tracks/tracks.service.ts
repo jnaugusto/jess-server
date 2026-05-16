@@ -5,7 +5,7 @@ import { tracks, locationPoints, drivers, vehicles } from '../database/schema';
 
 const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN ?? '';
 
-async function geocodePoint(lat: number, lng: number): Promise<object | null> {
+async function geocodePoint(lat: number, lng: number): Promise<unknown> {
   if (!MAPBOX_TOKEN) return null;
   try {
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,neighborhood,locality,place&limit=1`;
@@ -17,7 +17,7 @@ async function geocodePoint(lat: number, lng: number): Promise<object | null> {
   }
 }
 
-function extractPlace(geocode: object | null): string | undefined {
+function extractPlace(geocode: unknown): string | undefined {
   if (!geocode) return undefined;
   const feature = (geocode as any)?.features?.[0];
   if (!feature) return undefined;
@@ -356,8 +356,7 @@ export class TracksService {
   async backfillGeocode() {
     if (!MAPBOX_TOKEN) return;
 
-    // Find tracks that are missing at least one geocode and have location points.
-    const rows = await this.db.query<{
+    type BackfillRow = {
       id: string;
       start_geocode: string | null;
       end_geocode: string | null;
@@ -365,7 +364,10 @@ export class TracksService {
       first_lng: number;
       last_lat: number;
       last_lng: number;
-    }>(`
+    };
+
+    // Find tracks that are missing at least one geocode and have location points.
+    const rows = (await this.db.query(`
       SELECT
         t.id,
         t.start_geocode,
@@ -384,7 +386,7 @@ export class TracksService {
         WHERE track_id = t.id ORDER BY timestamp DESC LIMIT 1
       ) last_pts ON true
       WHERE t.start_geocode IS NULL OR t.end_geocode IS NULL
-    `);
+    `)) as { rows: BackfillRow[] };
 
     for (const row of rows.rows) {
       if (!row.start_geocode) {
