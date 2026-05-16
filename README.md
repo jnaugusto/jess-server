@@ -8,10 +8,10 @@ The NestJS backend powering [jess.dev](https://jess.dev) — my personal portfol
 
 ## What it does
 
-- Streams AI responses about me via Claude (`claude-haiku-4-5`) over SSE
-- Processes and upscales images using Sharp and Replicate's Real-ESRGAN models
-- Generates multi-page PDFs from HTML templates via a Playwright browser pool
-- Extracts text from images via Tesseract.js OCR (multi-language)
+- Streams AI responses about me over SSE using a large language model
+- Processes and AI-upscales images (2× / 4× neural upscaling)
+- Generates multi-page PDFs from HTML templates via a headless browser pool
+- Extracts text from images via OCR (multi-language)
 - Uploads files to Google Drive via OAuth2
 - Broadcasts live driver locations to the Meridian fleet dashboard over WebSocket
 - Accepts PowerSync CRUD batches from the Meridian mobile app and persists them to PostgreSQL
@@ -34,11 +34,11 @@ The NestJS backend powering [jess.dev](https://jess.dev) — my personal portfol
 | Auth | Better Auth — session management, email/password, OAuth |
 | Real-time | Socket.io 4 with `@nestjs/websockets` |
 | Job queues | BullMQ + Redis, Bull Board monitoring UI |
-| PDF generation | Playwright (headless Chromium pool) |
-| Image processing | Sharp (resize/convert) + Replicate (Real-ESRGAN upscaling) |
-| OCR | Tesseract.js — multi-language text extraction |
+| PDF generation | Headless browser pool (Chromium) |
+| Image processing | Image pipeline (resize/convert) + neural AI upscaling (2×/4×) |
+| OCR | Multi-language OCR engine |
 | Geocoding | Mapbox Geocoding API v5 |
-| AI | Anthropic Claude (`claude-haiku-4-5`), Google Generative AI |
+| AI | LLM streaming (SSE), multi-model support |
 | Validation | class-validator + class-transformer, Zod (drizzle-zod schemas) |
 | Config | t3-oss/env-core — validated at startup, throws on missing vars |
 | Docs | Swagger UI at `/api` |
@@ -52,9 +52,9 @@ The NestJS backend powering [jess.dev](https://jess.dev) — my personal portfol
 |--------|---------------|
 | `auth` | Better Auth integration, session guards, JWT handling |
 | `database` | Drizzle ORM client, schema, connection pooling |
-| `chat` | Claude SSE streaming — portfolio Q&A assistant |
-| `image` | Sharp processing, Replicate AI upscaling, Tesseract OCR |
-| `pdf` | Playwright headless PDF generation with BullMQ job queue |
+| `chat` | LLM SSE streaming — portfolio Q&A assistant |
+| `image` | Image processing, neural AI upscaling, OCR text extraction |
+| `pdf` | Headless browser PDF generation with BullMQ job queue |
 | `drive` | Google Drive OAuth2 file upload |
 | `users` | User profile and settings |
 | `powersync` | Meridian: CRUD upload handler, PowerSync JWT token generation |
@@ -67,11 +67,11 @@ The NestJS backend powering [jess.dev](https://jess.dev) — my personal portfol
 
 ## Key Engineering Details
 
-**Playwright browser pool**
-Spinning up a Chromium instance per PDF request would OOM shared infrastructure. `PLAYWRIGHT_POOL_SIZE` (default 3) bounds concurrency. Each instance is recycled after `PLAYWRIGHT_MAX_PAGES` (default 10) renders to prevent memory creep from accumulated JS heap. BullMQ serializes the queue so jobs wait rather than spawning unbounded browsers.
+**Headless browser pool for PDF generation**
+Spinning up a browser instance per PDF request would OOM shared infrastructure. `PLAYWRIGHT_POOL_SIZE` (default 3) bounds concurrency. Each instance is recycled after `PLAYWRIGHT_MAX_PAGES` (default 10) renders to prevent memory creep from accumulated JS heap. BullMQ serializes the queue so jobs wait rather than spawning unbounded browsers.
 
-**Image upscaling with quota enforcement**
-Replicate's Real-ESRGAN API upscales images 2× or 4× but has per-request cost. A Redis sliding-window counter enforces 3 upscales per 24h per IP. Images over 2M pixels are pre-downscaled by Sharp before being sent to the GPU model to avoid OOM on the inference side.
+**Neural image upscaling with quota enforcement**
+The AI upscaling model has per-request cost. A Redis sliding-window counter enforces 3 upscales per 24h per IP. Images over 2M pixels are pre-downscaled before being sent to the model to avoid OOM on the inference side.
 
 **WebSocket presence tracking (Meridian)**
 `LocationsGateway` maintains an in-memory `Map<driverUserId, Set<socketId>>` — not just a boolean. A driver can have multiple sockets open simultaneously. Disconnect only announces `driver:offline` when the *last* socket for that user closes. Ping interval is 10s / timeout 5s, detecting dead connections in ~15s vs Socket.io's default 45s.
@@ -131,7 +131,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 BETTER_AUTH_SECRET=...
 BETTER_AUTH_URL=http://localhost:3005/api/auth
-ANTHROPIC_API_KEY=sk-ant-...
+AI_API_KEY=...
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
