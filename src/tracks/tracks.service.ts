@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, and } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { tracks, locationPoints, drivers } from '../database/schema';
 
@@ -34,7 +34,7 @@ export class TracksService {
         name: t.title,
         driverId: driver?.id ?? t.userId,
         driverName: driver?.fullName ?? 'Unknown',
-        distance: t.distance,
+        distance: t.distance * 1000, // stored as km, frontend expects metres
         duration: t.durationSec,
         startTime: new Date(t.startTime).toISOString(),
         endTime: t.endTime ? new Date(t.endTime).toISOString() : null,
@@ -87,21 +87,47 @@ export class TracksService {
       .where(eq(tracks.id, trackId))
       .limit(1);
 
-    if (!track || track.userId !== userId) throw new NotFoundException(`Track ${trackId} not found.`);
+    if (!track) throw new NotFoundException(`Track ${trackId} not found.`);
+
+    // Tracks are owned by driver user accounts — verify through the drivers table.
+    const [driver] = await this.db.db
+      .select({ id: drivers.id, fullName: drivers.fullName })
+      .from(drivers)
+      .where(and(eq(drivers.ownerUserId, userId), eq(drivers.driverUserId, track.userId)))
+      .limit(1);
+
+    if (!driver) throw new NotFoundException(`Track ${trackId} not found.`);
 
     const points = await this.db.db
       .select({
-        latitude: locationPoints.latitude,
-        longitude: locationPoints.longitude,
+        lat: locationPoints.latitude,
+        lng: locationPoints.longitude,
         timestamp: locationPoints.timestamp,
         speed: locationPoints.speed,
-        altitude: locationPoints.altitude,
+        elevation: locationPoints.altitude,
+        accuracy: locationPoints.accuracy,
       })
       .from(locationPoints)
       .where(eq(locationPoints.trackId, trackId))
       .orderBy(locationPoints.timestamp);
 
-    return { ...track, points };
+    return {
+      id: track.id,
+      name: track.title,
+      driverId: driver.id,
+      driverName: driver.fullName,
+      distance: track.distance * 1000, // km → metres
+      duration: track.durationSec,
+      startTime: new Date(track.startTime).toISOString(),
+      endTime: track.endTime ? new Date(track.endTime).toISOString() : null,
+      status: track.status === 'active' ? 'in_progress' : track.status,
+      avgSpeed: track.avgSpeed,
+      topSpeed: track.maxSpeed,
+      idleTime: 0,
+      elevationGain: 0,
+      events: [],
+      points,
+    };
   }
 
   async getPoints(_userId: string, trackId: string) {
