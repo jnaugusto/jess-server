@@ -131,10 +131,18 @@ export class TracksService {
   }
 
   async getPoints(_userId: string, trackId: string) {
-    return this.db.db
+    const rows = await this.db.db
       .select()
       .from(locationPoints)
       .where(eq(locationPoints.trackId, trackId))
       .orderBy(locationPoints.timestamp);
+    return rows.map((p) => ({
+      lat: p.latitude,
+      lng: p.longitude,
+      speed: p.speed ?? 0,
+      elevation: p.altitude ?? 0,
+      timestamp: p.timestamp,
+      accuracy: p.accuracy ?? undefined,
+    }));
   }
 }
