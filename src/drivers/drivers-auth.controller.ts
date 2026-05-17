@@ -21,7 +21,7 @@ import { ResponseMessage } from '../common/decorators/response-message.decorator
  * so they can't accidentally log in to the driver app.
  */
 @ApiTags('drivers-auth')
-@Controller('auth/driver')
+@Controller('drivers')
 export class DriversAuthController {
   constructor(
     private readonly db: DatabaseService,
