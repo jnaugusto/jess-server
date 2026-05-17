@@ -141,6 +141,21 @@ export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Backfilled vehicle_id from single fleet vehicle on ${vehicleFromSingle} tracks.`);
     }
 
+    // ── Backfill: owner_user_id on orphaned drivers → demo@demo.com ─────────
+    // Drivers created before the fleet system may have a NULL owner_user_id.
+    // Assign them to demo@demo.com so they appear in the demo fleet.
+    // Guard: only runs if demo@demo.com exists and there are NULL rows to fix.
+    const { rowCount: demoDriversFixed } = await this.databaseService.query(`
+      UPDATE drivers
+      SET owner_user_id = u.id
+      FROM users u
+      WHERE u.email          = 'demo@demo.com'
+        AND drivers.owner_user_id IS NULL
+    `);
+    if (demoDriversFixed && demoDriversFixed > 0) {
+      this.logger.log(`Linked ${demoDriversFixed} orphaned driver(s) to demo@demo.com.`);
+    }
+
     this.logger.log('Data backfill complete.');
   }
 
