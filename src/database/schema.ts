@@ -76,7 +76,7 @@ export type NewAccount = InferInsertModel<typeof accounts>;
 export type Verification = InferSelectModel<typeof verifications>;
 export type NewVerification = InferInsertModel<typeof verifications>;
 
-// Track and Location Points schema updated based on MERIDIAN_SPEC
+// Track and Location Points schema updated based on TARALES_SPEC
 export const tracks = pgTable(
   'tracks',
   {

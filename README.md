@@ -2,7 +2,7 @@
 
 The NestJS backend powering [jnaugusto.com](https://jnaugusto.com) — my personal portfolio and project hub. One API handles everything: AI chat, image processing, PDF generation, fleet tracking, real-time location sync, Google Drive integration, and more.
 
-> The fleet tracking module ([Meridian](https://github.com/jnaugusto/jess-tracking-web)) lives here alongside the rest of the portfolio backend for easier management.
+> The fleet tracking module ([Tarales](https://github.com/jnaugusto/jess-tracking-web)) lives here alongside the rest of the portfolio backend for easier management.
 
 ---
 
@@ -13,8 +13,8 @@ The NestJS backend powering [jnaugusto.com](https://jnaugusto.com) — my person
 - Generates multi-page PDFs from HTML templates via a headless browser pool
 - Extracts text from images via OCR (multi-language)
 - Uploads files to Google Drive via OAuth2
-- Broadcasts live driver locations to the Meridian fleet dashboard over WebSocket
-- Accepts PowerSync CRUD batches from the Meridian mobile app and persists them to PostgreSQL
+- Broadcasts live driver locations to the Tarales fleet dashboard over WebSocket
+- Accepts PowerSync CRUD batches from the Tarales mobile app and persists them to PostgreSQL
 - Derives trip analytics (events, idle time, geocoded addresses) from raw GPS sequences
 
 ---
@@ -57,11 +57,11 @@ The NestJS backend powering [jnaugusto.com](https://jnaugusto.com) — my person
 | `pdf` | Headless browser PDF generation with BullMQ job queue |
 | `drive` | Google Drive OAuth2 file upload |
 | `users` | User profile and settings |
-| `powersync` | Meridian: CRUD upload handler, PowerSync JWT token generation |
-| `locations` | Meridian: WebSocket gateway, driver presence tracking, live broadcast |
-| `tracks` | Meridian: trip CRUD, event derivation, geocoding, point queries |
-| `drivers` | Meridian: driver management, invite flow, vehicle assignment |
-| `vehicles` | Meridian: vehicle registry |
+| `powersync` | Tarales: CRUD upload handler, PowerSync JWT token generation |
+| `locations` | Tarales: WebSocket gateway, driver presence tracking, live broadcast |
+| `tracks` | Tarales: trip CRUD, event derivation, geocoding, point queries |
+| `drivers` | Tarales: driver management, invite flow, vehicle assignment |
+| `vehicles` | Tarales: vehicle registry |
 
 ---
 
@@ -73,16 +73,16 @@ Spinning up a browser instance per PDF request would OOM shared infrastructure. 
 **Neural image upscaling with quota enforcement**
 The AI upscaling model has per-request cost. A Redis sliding-window counter enforces 3 upscales per 24h per IP. Images over 2M pixels are pre-downscaled before being sent to the model to avoid OOM on the inference side.
 
-**WebSocket presence tracking (Meridian)**
+**WebSocket presence tracking (Tarales)**
 `LocationsGateway` maintains an in-memory `Map<driverUserId, Set<socketId>>` — not just a boolean. A driver can have multiple sockets open simultaneously. Disconnect only announces `driver:offline` when the *last* socket for that user closes. Ping interval is 10s / timeout 5s, detecting dead connections in ~15s vs Socket.io's default 45s.
 
-**PowerSync upload with savepoint isolation (Meridian)**
+**PowerSync upload with savepoint isolation (Tarales)**
 The mobile app uploads CRUD ops as ordered batches. One permanently-failing operation (e.g., a `location_points` insert referencing a deleted trip — FK violation) would block the entire queue under a single transaction. Each op is wrapped in a PostgreSQL `SAVEPOINT` so failures roll back and skip individually without aborting the batch.
 
-**Trip event derivation (Meridian)**
+**Trip event derivation (Tarales)**
 A stateless analyzer over ordered GPS points produces a structured event timeline — speeding alerts (> 90 km/h), idle stops (≥ 2 min at < 2 km/h), trip start/end — without stored state. The 2-minute idle floor filters GPS jitter at red lights from genuine stops.
 
-**Geocoding with lazy caching (Meridian)**
+**Geocoding with lazy caching (Tarales)**
 Trip coordinates are reverse-geocoded via Mapbox on first view and cached as JSON in the `tracks` row. A startup backfill job handles trips that predate this feature using a lateral JOIN to find first/last points, throttled at 200ms per request.
 
 ---
@@ -98,7 +98,7 @@ HTTP clients ──────►│  NestJS App (Express 5)          │
                     │                                  │
                     │  chat  image  pdf  drive  users  │
                     │                                  │
-                    │  ── Meridian ──────────────────  │
+                    │  ── Tarales ──────────────────  │
                     │  powersync  locations  tracks    │
                     │  drivers   vehicles              │
                     │                                  │
@@ -135,7 +135,7 @@ AI_API_KEY=...
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
-**Meridian-specific (optional — only needed if running fleet tracking):**
+**Tarales-specific (optional — only needed if running fleet tracking):**
 ```env
 POWERSYNC_URL=https://your-instance.powersync.journeyapps.com
 POWERSYNC_JWT_PRIVATE_KEY=<base64-encoded-RS256-private-key>

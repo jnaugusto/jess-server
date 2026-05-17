@@ -25,7 +25,7 @@ export class MailService {
     message?: string;
     expiresInLabel: string;
   }) {
-    const subject = `${opts.inviterName} invited you to Meridian`;
+    const subject = `${opts.inviterName} invited you to Tarales`;
     const html = await this.renderDriverInvite(opts);
     return this.sendEmail(opts.to, subject, html);
   }
@@ -39,7 +39,7 @@ export class MailService {
     expiresInLabel: string;
   }): Promise<string> {
     return this.renderEmail('email/invite', {
-      subject: `${opts.inviterName} invited you to Meridian`,
+      subject: `${opts.inviterName} invited you to Tarales`,
       fullName: opts.fullName,
       inviterName: opts.inviterName,
       acceptUrl: opts.acceptUrl,
