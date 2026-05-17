@@ -38,7 +38,7 @@ sync_rules:
 
       fleet_resources:
         parameters: >
-          SELECT DISTINCT owner_user_id
+          SELECT owner_user_id
           FROM drivers
           WHERE driver_user_id = request.user_id()
             AND status = 'active'
