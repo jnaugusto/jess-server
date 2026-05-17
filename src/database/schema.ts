@@ -223,6 +223,7 @@ export const driverInvites = pgTable(
     mode: text('mode').notNull().default('email'),
     token: text('token').notNull().unique(),
     expiresAt: timestamp('expires_at').notNull(),
+    openedAt: timestamp('opened_at'),
     acceptedAt: timestamp('accepted_at'),
     acceptedByUserId: text('accepted_by_user_id').references(() => users.id),
     revokedAt: timestamp('revoked_at'),

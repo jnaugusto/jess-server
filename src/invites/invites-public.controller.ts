@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public, Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -16,6 +16,33 @@ export class InvitesPublicController {
   @ResponseMessage('Invite found.')
   lookup(@Param('token') token: string) {
     return this.invitesService.lookupByToken(token);
+  }
+
+  /**
+   * Called when the driver first opens the invite link.
+   * Records openedAt on the invite (once) — even before they have an account.
+   * Returns the same invite metadata as the GET so the web page needs only one call.
+   */
+  @Public()
+  @Post(':token/open')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark invite as opened (invite link clicked)' })
+  @ResponseMessage('Invite opened.')
+  open(@Param('token') token: string) {
+    return this.invitesService.openInvite(token);
+  }
+
+  /**
+   * Check the login status for an email — used by the driver app's multi-step login.
+   * Returns whether the email belongs to an existing driver account or a pending invite.
+   */
+  @Public()
+  @Post('check-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check email status for app login flow' })
+  @ResponseMessage('Email status resolved.')
+  checkEmail(@Body() body: { email: string }) {
+    return this.invitesService.checkEmailStatus(body.email);
   }
 
   @Public()

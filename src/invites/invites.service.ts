@@ -7,9 +7,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { eq, and, isNull, desc } from 'drizzle-orm';
+import { eq, and, isNull, desc, gt } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { driverInvites, drivers } from '../database/schema';
+import { driverInvites, drivers, users, userSettings } from '../database/schema';
 import { MailService } from '../common/mail/mail.service';
 import { InviteDriverDto } from '../drivers/dto/invite-driver.dto';
 import { env } from '../env';
@@ -132,6 +132,114 @@ export class InvitesService {
     return invite;
   }
 
+  /**
+   * Mark an invite as opened (first click of the invite link).
+   * Called when the driver visits the invite URL — even before they have an account.
+   * Sets openedAt once; subsequent calls are idempotent.
+   */
+  async openInvite(token: string) {
+    const [invite] = await this.db.db
+      .select()
+      .from(driverInvites)
+      .where(eq(driverInvites.token, token))
+      .limit(1);
+
+    if (!invite) throw new NotFoundException('Invite not found.');
+    if (invite.revokedAt) throw new GoneException('Invite has been revoked.');
+    if (invite.expiresAt < new Date()) throw new GoneException('Invite has expired.');
+    if (invite.acceptedAt) throw new GoneException('Invite already accepted.');
+
+    if (!invite.openedAt) {
+      await this.db.db
+        .update(driverInvites)
+        .set({ openedAt: new Date() })
+        .where(eq(driverInvites.id, invite.id));
+    }
+
+    return {
+      id: invite.id,
+      fullName: invite.fullName,
+      email: invite.email ?? null,
+      code: invite.code,
+      role: invite.role,
+      message: invite.message,
+      expiresAt: invite.expiresAt,
+    };
+  }
+
+  /**
+   * Check the status of an email address for the driver app login flow.
+   *
+   * Returns:
+   *  - { status: 'existing' }  — has an account + driver record → show password field
+   *  - { status: 'invited', inviteToken, ownerName } — pending invite, no account yet → show create-password
+   *  - { status: 'none' }  — no invite found → show error
+   */
+  async checkEmailStatus(email: string): Promise<
+    | { status: 'existing' }
+    | { status: 'invited'; inviteToken: string; ownerName: string }
+    | { status: 'none' }
+  > {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Does a user account exist for this email?
+    const [user] = await this.db.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
+      .limit(1);
+
+    if (user) {
+      const [driver] = await this.db.db
+        .select({ id: drivers.id })
+        .from(drivers)
+        .where(eq(drivers.driverUserId, user.id))
+        .limit(1);
+
+      // Only return 'existing' if they have both an account AND a driver record.
+      // Fleet owners who don't have a driver record get 'none' — they'll see an
+      // error rather than a misleading "wrong password" loop.
+      if (driver) return { status: 'existing' };
+      return { status: 'none' };
+    }
+
+    // No account yet — look for a valid pending invite for this email.
+    const [invite] = await this.db.db
+      .select({
+        token: driverInvites.token,
+        ownerUserId: driverInvites.ownerUserId,
+      })
+      .from(driverInvites)
+      .where(
+        and(
+          eq(driverInvites.email, normalizedEmail),
+          isNull(driverInvites.acceptedAt),
+          isNull(driverInvites.revokedAt),
+          gt(driverInvites.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+
+    if (!invite) return { status: 'none' };
+
+    // Prefer the org name the owner set in settings; fall back to their display name.
+    const [settings] = await this.db.db
+      .select({ orgName: userSettings.orgName })
+      .from(userSettings)
+      .where(eq(userSettings.userId, invite.ownerUserId))
+      .limit(1);
+
+    const [owner] = await this.db.db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, invite.ownerUserId))
+      .limit(1);
+
+    const ownerName = settings?.orgName || owner?.name || 'your fleet';
+
+    return { status: 'invited', inviteToken: invite.token, ownerName };
+  }
+
   async lookupByToken(token: string) {
     const [invite] = await this.db.db
       .select()
@@ -216,7 +324,22 @@ export class InvitesService {
         .where(eq(driverInvites.id, invite.id));
     });
 
-    return { sessionToken: signUpData.token, driverId };
+    // Resolve the fleet name for the welcome screen.
+    const [settings] = await this.db.db
+      .select({ orgName: userSettings.orgName })
+      .from(userSettings)
+      .where(eq(userSettings.userId, invite.ownerUserId))
+      .limit(1);
+
+    const [owner] = await this.db.db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, invite.ownerUserId))
+      .limit(1);
+
+    const ownerName = settings?.orgName || owner?.name || 'your fleet';
+
+    return { sessionToken: signUpData.token, driverId, ownerName };
   }
 
   async acceptInvite(token: string, acceptingUserId: string) {
