@@ -22,11 +22,24 @@ sync_rules:
   content: |
     bucket_definitions:
       user_data:
-        # Separate bucket for each user to ensure isolation
         parameters: SELECT request.user_id() as user_id
         data:
           - SELECT * FROM tracks WHERE user_id = bucket.user_id
           - SELECT * FROM location_points WHERE user_id = bucket.user_id
+
+      driver_fleet:
+        parameters: >
+          SELECT id AS driver_id, owner_user_id
+          FROM drivers
+          WHERE driver_user_id = request.user_id()
+            AND status = 'active'
+        data:
+          - SELECT * FROM drivers WHERE id = bucket.driver_id
+          - SELECT * FROM vehicles
+            WHERE owner_user_id = bucket.owner_user_id
+              AND status != 'decommissioned'
+          - SELECT user_id AS id, org_name FROM user_settings
+            WHERE user_id = bucket.owner_user_id
 
 # Settings for client authentication
 client_auth:

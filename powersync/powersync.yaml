@@ -20,6 +20,20 @@ sync_rules:
           - SELECT * FROM tracks WHERE user_id = bucket.user_id
           - SELECT * FROM location_points WHERE user_id = bucket.user_id
 
+      driver_fleet:
+        parameters: >
+          SELECT id AS driver_id, owner_user_id
+          FROM drivers
+          WHERE driver_user_id = request.user_id()
+            AND status = 'active'
+        data:
+          - SELECT * FROM drivers WHERE id = bucket.driver_id
+          - SELECT * FROM vehicles
+            WHERE owner_user_id = bucket.owner_user_id
+              AND status != 'decommissioned'
+          - SELECT user_id AS id, org_name FROM user_settings
+            WHERE user_id = bucket.owner_user_id
+
 client_auth:
   supabase: false
   audience: ['https://powersync.jnaugusto.com']
