@@ -93,6 +93,10 @@ export const tracks = pgTable(
     maxSpeed: doublePrecision('max_speed').notNull().default(0),
     durationSec: bigint('duration_sec', { mode: 'number' }).notNull().default(0),
     deviceId: text('device_id'),
+    // Which fleet + vehicle context was active when this trip was recorded.
+    // Nullable — trips recorded before multi-fleet support have no context.
+    driverId: text('driver_id'),
+    vehicleId: text('vehicle_id'),
     startGeocode: text('start_geocode'),
     endGeocode: text('end_geocode'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -174,8 +178,9 @@ export const drivers = pgTable(
     // Partial index: only enforced when driverUserId is not null, so
     // uninvited/manually-created driver rows (driverUserId = NULL) are
     // still allowed to coexist freely.
-    driverUserUniq: uniqueIndex('uq_drivers_driver_user_id')
-      .on(table.driverUserId)
+    // A user can belong to many fleets, but only once per fleet.
+    driverFleetUniq: uniqueIndex('uq_drivers_fleet_membership')
+      .on(table.ownerUserId, table.driverUserId)
       .where(sql`${table.driverUserId} is not null`),
   }),
 );

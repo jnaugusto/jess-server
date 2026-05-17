@@ -190,17 +190,11 @@ export class InvitesService {
       .limit(1);
 
     if (user) {
-      const [driver] = await this.db.db
-        .select({ id: drivers.id })
-        .from(drivers)
-        .where(eq(drivers.driverUserId, user.id))
-        .limit(1);
-
-      // Only return 'existing' if they have both an account AND a driver record.
-      // Fleet owners who don't have a driver record get 'none' — they'll see an
-      // error rather than a misleading "wrong password" loop.
-      if (driver) return { status: 'existing' };
-      return { status: 'none' };
+      // Account exists → always sign in, regardless of how many fleets they're in.
+      // The fleet selector shown before tracking handles which context to use.
+      // Fleet owners who have no driver record will be rejected at sign-in by the
+      // driver-only guard on POST /drivers/sign-in.
+      return { status: 'existing' };
     }
 
     // No account yet — look for a valid pending invite for this email.
@@ -301,9 +295,8 @@ export class InvitesService {
 
     const newUserId = signUpData.user.id;
 
-    // 3. Guard — freshly created account can't be in a fleet yet, but
-    //    check anyway in case of a race or duplicate registration attempt.
-    await this.assertNotAlreadyInFleet(newUserId);
+    // 3. Guard against duplicate registration for the same fleet.
+    await this.assertNotAlreadyInThisFleet(newUserId, invite.ownerUserId);
 
     // 4. Create driver record + mark invite accepted — one transaction
     const driverId = crypto.randomUUID();
@@ -354,7 +347,7 @@ export class InvitesService {
     if (invite.expiresAt < new Date()) throw new GoneException('Invite has expired.');
     if (invite.acceptedAt) throw new GoneException('Invite already accepted.');
 
-    await this.assertNotAlreadyInFleet(acceptingUserId);
+    await this.assertNotAlreadyInThisFleet(acceptingUserId, invite.ownerUserId);
 
     const driverId = crypto.randomUUID();
 
@@ -378,17 +371,17 @@ export class InvitesService {
     return { driverId };
   }
 
-  /** Throws if the user already belongs to a fleet. */
-  private async assertNotAlreadyInFleet(userId: string): Promise<void> {
+  /** Throws if the user is already a driver in this specific fleet (owner). */
+  private async assertNotAlreadyInThisFleet(userId: string, ownerUserId: string): Promise<void> {
     const [existing] = await this.db.db
       .select({ id: drivers.id })
       .from(drivers)
-      .where(eq(drivers.driverUserId, userId))
+      .where(and(eq(drivers.driverUserId, userId), eq(drivers.ownerUserId, ownerUserId)))
       .limit(1);
 
     if (existing) {
       throw new ConflictException(
-        'This account is already part of a fleet. A driver can only belong to one fleet at a time.',
+        'You are already a driver in this fleet.',
       );
     }
   }

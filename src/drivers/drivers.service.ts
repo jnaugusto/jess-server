@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, desc, ilike, or, inArray, count, sum } from 'drizzle-orm';
+import { eq, and, desc, ilike, or, inArray, count, sum, ne } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { drivers, tracks, vehicles } from '../database/schema';
+import { drivers, tracks, vehicles, users, userSettings } from '../database/schema';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 
@@ -93,6 +93,74 @@ export class DriversService {
 
   async deactivate(userId: string, id: string) {
     return this.update(userId, id, { status: 'deactivated' });
+  }
+
+  /**
+   * Returns all active fleet memberships for a driver user — used by the
+   * mobile app's fleet selector shown before tracking starts.
+   * Each fleet includes all non-decommissioned vehicles so the driver can
+   * pick the vehicle they're using that day.
+   */
+  async getMyFleets(driverUserId: string) {
+    const driverRecords = await this.db.db
+      .select({
+        id: drivers.id,
+        code: drivers.code,
+        ownerUserId: drivers.ownerUserId,
+        status: drivers.status,
+      })
+      .from(drivers)
+      .where(and(eq(drivers.driverUserId, driverUserId), eq(drivers.status, 'active')));
+
+    if (driverRecords.length === 0) return [];
+
+    const ownerIds = [...new Set(driverRecords.map((d) => d.ownerUserId))];
+
+    const [ownerUsers, ownerSettingsRows, vehicleRows] = await Promise.all([
+      this.db.db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(inArray(users.id, ownerIds)),
+      this.db.db
+        .select({ userId: userSettings.userId, orgName: userSettings.orgName })
+        .from(userSettings)
+        .where(inArray(userSettings.userId, ownerIds)),
+      this.db.db
+        .select({
+          id: vehicles.id,
+          ownerUserId: vehicles.ownerUserId,
+          code: vehicles.code,
+          plate: vehicles.plate,
+          make: vehicles.make,
+          model: vehicles.model,
+          type: vehicles.type,
+          status: vehicles.status,
+        })
+        .from(vehicles)
+        .where(
+          and(
+            inArray(vehicles.ownerUserId, ownerIds),
+            ne(vehicles.status, 'decommissioned'),
+          ),
+        ),
+    ]);
+
+    const ownerMap = new Map(ownerUsers.map((u) => [u.id, u.name]));
+    const settingsMap = new Map(ownerSettingsRows.map((s) => [s.userId, s.orgName]));
+
+    const vehiclesByOwner = new Map<string, typeof vehicleRows>();
+    for (const v of vehicleRows) {
+      if (!vehiclesByOwner.has(v.ownerUserId)) vehiclesByOwner.set(v.ownerUserId, []);
+      vehiclesByOwner.get(v.ownerUserId)!.push(v);
+    }
+
+    return driverRecords.map((d) => ({
+      driverId: d.id,
+      driverCode: d.code,
+      orgName: settingsMap.get(d.ownerUserId) || ownerMap.get(d.ownerUserId) || 'Unknown Fleet',
+      ownerName: ownerMap.get(d.ownerUserId) || 'Unknown',
+      vehicles: vehiclesByOwner.get(d.ownerUserId) ?? [],
+    }));
   }
 
   async delete(userId: string, id: string) {

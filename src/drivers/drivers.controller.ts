@@ -27,6 +27,18 @@ import type { UpdateDriverDto } from './dto/update-driver.dto';
 export class DriversController {
   constructor(private readonly driversService: DriversService) {}
 
+  /**
+   * Returns all fleet memberships for the authenticated driver user.
+   * Used by the mobile app fleet selector before tracking starts.
+   * Route must be declared before :id to avoid being swallowed by the param route.
+   */
+  @Get('my-fleets')
+  @ApiOperation({ summary: 'Get all fleet memberships for the authenticated driver' })
+  @ResponseMessage('Fleets retrieved.')
+  getMyFleets(@Session() session: UserSession) {
+    return this.driversService.getMyFleets(session.user.id);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List drivers for the current user' })
   @ResponseMessage('Drivers retrieved.')
