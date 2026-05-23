@@ -180,6 +180,20 @@ export class TracksService {
       .where(inArray(tracks.userId, driverUserIds))
       .orderBy(desc(tracks.startTime));
 
+    // Resolve vehicle names for all trips in one query.
+    const vehicleIds = [...new Set(rows.map((t) => t.vehicleId).filter(Boolean))] as string[];
+    const vehicleMap = new Map<string, string>();
+    if (vehicleIds.length > 0) {
+      const vehicleRows = await this.db.db
+        .select({ id: vehicles.id, make: vehicles.make, model: vehicles.model, plate: vehicles.plate })
+        .from(vehicles)
+        .where(inArray(vehicles.id, vehicleIds));
+      for (const v of vehicleRows) {
+        const namePart = [v.make, v.model].filter(Boolean).join(' ');
+        vehicleMap.set(v.id, namePart ? `${namePart} · ${v.plate}` : v.plate);
+      }
+    }
+
     return rows.map((t) => {
       const driver = driverByUserId.get(t.userId);
       const startGeo = t.startGeocode ? (() => { try { return JSON.parse(t.startGeocode!); } catch { return null; } })() : null;
@@ -189,6 +203,7 @@ export class TracksService {
         name: t.title,
         driverId: driver?.id ?? t.userId,
         driverName: driver?.fullName ?? 'Unknown',
+        vehicleName: t.vehicleId ? vehicleMap.get(t.vehicleId) : undefined,
         distance: t.distance * 1000, // stored as km, frontend expects metres
         duration: t.durationSec,
         startTime: new Date(t.startTime).toISOString(),
@@ -272,13 +287,15 @@ export class TracksService {
       .where(eq(locationPoints.trackId, trackId))
       .orderBy(locationPoints.timestamp);
 
-    // Resolve assigned vehicle name.
+    // Resolve vehicle name — prefer the vehicle logged on the trip itself,
+    // fall back to whatever the driver currently has assigned.
+    const vehicleIdToLookup = track.vehicleId ?? driver.assignedVehicleId;
     let vehicleName: string | undefined;
-    if (driver.assignedVehicleId) {
+    if (vehicleIdToLookup) {
       const [veh] = await this.db.db
         .select({ make: vehicles.make, model: vehicles.model, plate: vehicles.plate })
         .from(vehicles)
-        .where(eq(vehicles.id, driver.assignedVehicleId))
+        .where(eq(vehicles.id, vehicleIdToLookup))
         .limit(1);
       if (veh) {
         vehicleName = [veh.make, veh.model].filter(Boolean).join(' ') || undefined;
