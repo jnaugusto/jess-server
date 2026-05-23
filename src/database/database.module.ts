@@ -141,6 +141,23 @@ export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Backfilled vehicle_id from single fleet vehicle on ${vehicleFromSingle} tracks.`);
     }
 
+    // ── Backfill: vehicle_id on any remaining tracks via user_id ────────────
+    // Catches old tracks that have no driver_id at all (pre-fleet-selector era).
+    // Matches driver by user_id and picks their currently assigned vehicle.
+    // Drivers who belong to multiple fleets use the first active assignment found.
+    const { rowCount: vehicleFromUserId } = await this.databaseService.query(`
+      UPDATE tracks t
+      SET vehicle_id = d.assigned_vehicle_id
+      FROM drivers d
+      WHERE t.user_id              = d.driver_user_id
+        AND t.vehicle_id           IS NULL
+        AND d.assigned_vehicle_id  IS NOT NULL
+        AND d.status               = 'active'
+    `);
+    if (vehicleFromUserId && vehicleFromUserId > 0) {
+      this.logger.log(`Backfilled vehicle_id via user_id on ${vehicleFromUserId} tracks.`);
+    }
+
     // ── Backfill: owner_user_id on orphaned drivers → demo@demo.com ─────────
     // Drivers created before the fleet system may have a NULL owner_user_id.
     // Assign them to demo@demo.com so they appear in the demo fleet.
