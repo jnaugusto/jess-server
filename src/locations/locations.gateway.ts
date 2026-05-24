@@ -1,4 +1,4 @@
-import { Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -50,7 +50,7 @@ const corsOrigins = (
   pingTimeout: 5000,
 })
 export class LocationsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
+  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(LocationsGateway.name);
   private tickCount = 0;
@@ -60,6 +60,25 @@ export class LocationsGateway
    * dot reflects that even before they start a trip.
    */
   private readonly onlineSockets = new Map<string, Set<string>>();
+
+  /**
+   * Tracks when each driver last sent a location:tick.
+   * Only set once a tick is received — drivers in "standby" (app open,
+   * not tracking) have no entry and are exempt from idle eviction.
+   */
+  private readonly lastTickAt = new Map<string, number>();
+
+  /**
+   * How long (ms) a driver can be silent before we treat their socket as
+   * a zombie and force them offline. 10 min >> any plausible standby gap
+   * but short enough to clear a locked phone within a reasonable time.
+   */
+  private static readonly IDLE_TIMEOUT_MS = 10 * 60 * 1_000; // 10 minutes
+
+  /** How often to run the idle-eviction sweep. */
+  private static readonly IDLE_CHECK_MS = 2 * 60 * 1_000; // every 2 minutes
+
+  private idleCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   @WebSocketServer()
   server!: Server;
@@ -71,6 +90,47 @@ export class LocationsGateway
 
   onModuleInit() {
     this.logger.log('Locations gateway initialised on namespace /locations');
+
+    // Periodically evict drivers whose socket is alive but whose last tick
+    // was more than IDLE_TIMEOUT_MS ago. This catches Android foreground-
+    // service "zombie" connections where the phone is locked / the user has
+    // stopped driving but the TCP socket stays open indefinitely.
+    //
+    // Drivers who connected but never sent a tick (genuine standby) are
+    // intentionally exempt: lastTickAt has no entry for them.
+    this.idleCheckInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [userId, sockets] of this.onlineSockets) {
+        if (sockets.size === 0) continue;
+
+        const last = this.lastTickAt.get(userId);
+        if (last === undefined) continue; // standby — never tracked, leave alone
+        if (now - last < LocationsGateway.IDLE_TIMEOUT_MS) continue;
+
+        const idleMin = Math.round((now - last) / 60_000);
+        this.logger.warn(
+          `[IdleTimeout] driver ${userId} silent for ${idleMin} min — forcing offline`,
+        );
+
+        // Remove from presence maps before announcing so isUserOnline()
+        // returns false immediately (prevents a race with announceAvailable).
+        this.onlineSockets.delete(userId);
+        this.lastTickAt.delete(userId);
+
+        void this.announceUnavailable(userId).catch((e) =>
+          this.logger.warn(
+            `announceUnavailable failed: ${e instanceof Error ? e.message : e}`,
+          ),
+        );
+      }
+    }, LocationsGateway.IDLE_CHECK_MS);
+  }
+
+  onModuleDestroy() {
+    if (this.idleCheckInterval !== null) {
+      clearInterval(this.idleCheckInterval);
+      this.idleCheckInterval = null;
+    }
   }
 
   async handleConnection(@ConnectedSocket() client: AuthedSocket) {
@@ -192,6 +252,7 @@ export class LocationsGateway
       // dashboard dot to offline (unless they're still mid-trip on a
       // dashboard that gets explicit `driver:offline` filtered… we keep
       // it simple and just emit unavailable).
+      this.lastTickAt.delete(userId); // clean up idle-tracking state
       void this.announceUnavailable(userId).catch((e) =>
         this.logger.warn(
           `announceUnavailable failed: ${e instanceof Error ? e.message : e}`,
@@ -245,6 +306,10 @@ export class LocationsGateway
     ) {
       return; // ignore malformed
     }
+
+    // Record activity so the idle-eviction sweep can distinguish a live
+    // tracking session from a zombie foreground-service socket.
+    this.lastTickAt.set(driverUserId, Date.now());
 
     const driverRows =
       await this.locationsService.findDriversByDriverUserId(driverUserId);
