@@ -58,6 +58,9 @@ export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
     await this.databaseService.query(
       `ALTER TABLE tracks ADD COLUMN IF NOT EXISTS vehicle_id text`,
     );
+    await this.databaseService.query(
+      `ALTER TABLE tracks ADD COLUMN IF NOT EXISTS vehicle_plate text`,
+    );
 
     // ── driver_invites: invite-opened tracking ───────────────────────────────
     // Set when the driver first clicks the invite link — before account creation.
@@ -181,6 +184,20 @@ export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
     `);
     if (vehicleFromLatestTrip && vehicleFromLatestTrip > 0) {
       this.logger.log(`Backfilled vehicle_id from latest trip vehicle on ${vehicleFromLatestTrip} tracks.`);
+    }
+
+    // ── Backfill: vehicle_plate from vehicles table ──────────────────────────
+    // Denormalise plate onto the track so it's available in local SQLite without
+    // needing the vehicles table to be synced.
+    const { rowCount: plateBackfilled } = await this.databaseService.query(`
+      UPDATE tracks t
+      SET vehicle_plate = v.plate
+      FROM vehicles v
+      WHERE t.vehicle_id    = v.id
+        AND t.vehicle_plate IS NULL
+    `);
+    if (plateBackfilled && plateBackfilled > 0) {
+      this.logger.log(`Backfilled vehicle_plate on ${plateBackfilled} tracks.`);
     }
 
     // ── Backfill: owner_user_id on orphaned drivers → demo@demo.com ─────────
