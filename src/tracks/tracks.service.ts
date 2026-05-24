@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { eq, desc, inArray, and } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { tracks, locationPoints, drivers, vehicles } from '../database/schema';
@@ -158,6 +158,10 @@ function computeElevationGain(points: Array<{ elevation: number | null }>): numb
 
 @Injectable()
 export class TracksService {
+  private readonly logger = new Logger(TracksService.name);
+  /** Prevents concurrent backfill runs (startup + lazy list trigger). */
+  private geocodeRunning = false;
+
   constructor(private readonly db: DatabaseService) {}
 
   async getTracks(userId: string) {
@@ -194,7 +198,7 @@ export class TracksService {
       }
     }
 
-    return rows.map((t) => {
+    const result = rows.map((t) => {
       const driver = driverByUserId.get(t.userId);
       const startGeo = t.startGeocode ? (() => { try { return JSON.parse(t.startGeocode!); } catch { return null; } })() : null;
       const endGeo   = t.endGeocode   ? (() => { try { return JSON.parse(t.endGeocode!);   } catch { return null; } })() : null;
@@ -213,6 +217,20 @@ export class TracksService {
         endAddress: extractPlace(endGeo),
       };
     });
+
+    // If any completed trips are missing geocodes (e.g. they synced after the
+    // server started), kick off a background backfill so routes populate on
+    // the next list refresh without blocking this response.
+    const needsGeocode = rows.some(
+      (t) => t.status === 'completed' && (!t.startGeocode || !t.endGeocode),
+    );
+    if (needsGeocode) {
+      void this.backfillGeocode().catch((e) =>
+        this.logger.warn(`backfillGeocode failed: ${e instanceof Error ? e.message : e}`),
+      );
+    }
+
+    return result;
   }
 
   async getTracksWithPoints(userId: string) {
@@ -372,6 +390,8 @@ export class TracksService {
 
   async backfillGeocode() {
     if (!MAPBOX_TOKEN) return;
+    if (this.geocodeRunning) return;
+    this.geocodeRunning = true;
 
     type BackfillRow = {
       id: string;
@@ -383,51 +403,59 @@ export class TracksService {
       last_lng: number;
     };
 
-    // Find tracks that are missing at least one geocode and have location points.
-    const rows = (await this.db.query(`
-      SELECT
-        t.id,
-        t.start_geocode,
-        t.end_geocode,
-        first_pts.latitude  AS first_lat,
-        first_pts.longitude AS first_lng,
-        last_pts.latitude   AS last_lat,
-        last_pts.longitude  AS last_lng
-      FROM tracks t
-      JOIN LATERAL (
-        SELECT latitude, longitude FROM location_points
-        WHERE track_id = t.id ORDER BY timestamp ASC LIMIT 1
-      ) first_pts ON true
-      JOIN LATERAL (
-        SELECT latitude, longitude FROM location_points
-        WHERE track_id = t.id ORDER BY timestamp DESC LIMIT 1
-      ) last_pts ON true
-      WHERE t.start_geocode IS NULL OR t.end_geocode IS NULL
-    `)) as { rows: BackfillRow[] };
+    try {
+      // Find tracks that are missing at least one geocode and have location points.
+      const rows = (await this.db.query(`
+        SELECT
+          t.id,
+          t.start_geocode,
+          t.end_geocode,
+          first_pts.latitude  AS first_lat,
+          first_pts.longitude AS first_lng,
+          last_pts.latitude   AS last_lat,
+          last_pts.longitude  AS last_lng
+        FROM tracks t
+        JOIN LATERAL (
+          SELECT latitude, longitude FROM location_points
+          WHERE track_id = t.id ORDER BY timestamp ASC LIMIT 1
+        ) first_pts ON true
+        JOIN LATERAL (
+          SELECT latitude, longitude FROM location_points
+          WHERE track_id = t.id ORDER BY timestamp DESC LIMIT 1
+        ) last_pts ON true
+        WHERE t.start_geocode IS NULL OR t.end_geocode IS NULL
+      `)) as { rows: BackfillRow[] };
 
-    for (const row of rows.rows) {
-      if (!row.start_geocode) {
-        const geo = await geocodePoint(row.first_lat, row.first_lng);
-        if (geo) {
-          await this.db.query(
-            'UPDATE tracks SET start_geocode = $1 WHERE id = $2',
-            [JSON.stringify(geo), row.id],
-          ).catch(() => {});
-        }
+      if (rows.rows.length > 0) {
+        this.logger.log(`[backfillGeocode] geocoding ${rows.rows.length} trip(s)`);
       }
 
-      if (!row.end_geocode) {
-        const geo = await geocodePoint(row.last_lat, row.last_lng);
-        if (geo) {
-          await this.db.query(
-            'UPDATE tracks SET end_geocode = $1 WHERE id = $2',
-            [JSON.stringify(geo), row.id],
-          ).catch(() => {});
+      for (const row of rows.rows) {
+        if (!row.start_geocode) {
+          const geo = await geocodePoint(row.first_lat, row.first_lng);
+          if (geo) {
+            await this.db.query(
+              'UPDATE tracks SET start_geocode = $1 WHERE id = $2',
+              [JSON.stringify(geo), row.id],
+            ).catch(() => {});
+          }
         }
-      }
 
-      // Throttle: 5 requests/sec max (Mapbox free tier is generous but let's be nice).
-      await new Promise((r) => setTimeout(r, 200));
+        if (!row.end_geocode) {
+          const geo = await geocodePoint(row.last_lat, row.last_lng);
+          if (geo) {
+            await this.db.query(
+              'UPDATE tracks SET end_geocode = $1 WHERE id = $2',
+              [JSON.stringify(geo), row.id],
+            ).catch(() => {});
+          }
+        }
+
+        // Throttle: 5 requests/sec max (Mapbox free tier is generous but let's be nice).
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    } finally {
+      this.geocodeRunning = false;
     }
   }
 }
