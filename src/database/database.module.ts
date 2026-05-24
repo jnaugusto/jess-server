@@ -158,6 +158,31 @@ export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Backfilled vehicle_id via user_id on ${vehicleFromUserId} tracks.`);
     }
 
+    // ── Backfill: vehicle_id using the most recently used vehicle ───────────
+    // For any tracks still missing vehicle_id, look at the same driver's
+    // other trips and use the most recently recorded vehicle. This handles
+    // drivers whose assigned_vehicle_id was never set in the drivers table.
+    const { rowCount: vehicleFromLatestTrip } = await this.databaseService.query(`
+      UPDATE tracks t
+      SET vehicle_id = (
+        SELECT t2.vehicle_id
+        FROM   tracks t2
+        WHERE  t2.user_id    = t.user_id
+          AND  t2.vehicle_id IS NOT NULL
+        ORDER  BY t2.start_time DESC
+        LIMIT  1
+      )
+      WHERE t.vehicle_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM tracks t3
+          WHERE  t3.user_id    = t.user_id
+            AND  t3.vehicle_id IS NOT NULL
+        )
+    `);
+    if (vehicleFromLatestTrip && vehicleFromLatestTrip > 0) {
+      this.logger.log(`Backfilled vehicle_id from latest trip vehicle on ${vehicleFromLatestTrip} tracks.`);
+    }
+
     // ── Backfill: owner_user_id on orphaned drivers → demo@demo.com ─────────
     // Drivers created before the fleet system may have a NULL owner_user_id.
     // Assign them to demo@demo.com so they appear in the demo fleet.
