@@ -10,6 +10,8 @@ import {
 } from '@nestjs/websockets';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import type { Server, Socket } from 'socket.io';
+import { GeofencesService } from '../geofences/geofences.service';
+import { PushService } from '../push/push.service';
 import { LocationsService } from './locations.service';
 
 interface AuthedSocket extends Socket {
@@ -86,6 +88,8 @@ export class LocationsGateway
   constructor(
     @Inject(AuthService) private readonly authService: AuthService,
     private readonly locationsService: LocationsService,
+    private readonly geofenceService: GeofencesService,
+    private readonly pushService: PushService,
   ) {}
 
   onModuleInit() {
@@ -331,6 +335,8 @@ export class LocationsGateway
     }
     this.tickCount++;
 
+    const locationLabel = this.locationsService.getCachedLabel(driverUserId);
+
     for (const meta of driverRows) {
       const payload = this.locationsService.buildBroadcastPayload(
         {
@@ -345,10 +351,49 @@ export class LocationsGateway
           driverName: meta.driverName,
           driverCode: meta.driverCode,
           vehicleName: meta.vehicleName,
+          locationLabel,
         },
       );
       this.broadcastLocation(meta.workspaceOwnerUserId, payload);
+
+      const crossings = await this.geofenceService.checkTick(
+        meta.workspaceOwnerUserId,
+        meta.driverId,
+        meta.driverName,
+        body.lat,
+        body.lng,
+      );
+      for (const crossing of crossings) {
+        const alertPayload = {
+          driverId: meta.driverId,
+          driverName: meta.driverName,
+          geofenceId: crossing.geofenceId,
+          geofenceName: crossing.geofenceName,
+          event: crossing.event,
+          lat: body.lat,
+          lng: body.lng,
+          timestamp: new Date().toISOString(),
+        };
+
+        // Real-time WebSocket alert
+        this.server.to(`user:${meta.workspaceOwnerUserId}`).emit('geofence:alert', alertPayload);
+
+        // Background push notification (don't await — never block the tick path)
+        void this.pushService
+          .notify(meta.workspaceOwnerUserId, {
+            title: `Geofence ${crossing.event === 'enter' ? 'Entry' : 'Exit'}`,
+            body: `${meta.driverName} ${crossing.event === 'enter' ? 'entered' : 'exited'} "${crossing.geofenceName}"`,
+            url: '/live',
+          })
+          .catch((e: unknown) =>
+            this.logger.warn(
+              `Push notify failed: ${e instanceof Error ? e.message : String(e)}`,
+            ),
+          );
+      }
     }
+
+    void this.locationsService.refreshLabelIfStale(driverUserId, body.lat, body.lng).catch(() => {});
   }
 
   /**

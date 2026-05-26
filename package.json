@@ -33,6 +33,7 @@
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.1.19",
+    "@pushforge/builder": "^2.0.5",
     "@t3-oss/env-core": "^0.13.10",
     "@thallesp/nestjs-better-auth": "^2.4.0",
     "@total-typescript/ts-reset": "^0.6.1",

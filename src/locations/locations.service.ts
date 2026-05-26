@@ -5,6 +5,8 @@ import { drivers, locationPoints, vehicles } from '../database/schema';
 import { locationsOld as locations } from '../database/schema.old';
 import { GetLocationsDto } from './dto/get-locations.dto';
 
+const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN ?? '';
+
 export type LiveStatus = 'driving' | 'stopped' | 'speeding' | 'standby';
 
 export interface LiveLocation {
@@ -41,7 +43,44 @@ function deriveStatus(
 
 @Injectable()
 export class LocationsService {
+  private readonly labelCache = new Map<string, { label: string; geocodedAt: number }>();
+  private static readonly LABEL_TTL_MS = 5 * 60 * 1_000;
+
   constructor(private readonly db: DatabaseService) {}
+
+  getCachedLabel(driverUserId: string): string | undefined {
+    return this.labelCache.get(driverUserId)?.label;
+  }
+
+  async refreshLabelIfStale(driverUserId: string, lat: number, lng: number): Promise<void> {
+    const entry = this.labelCache.get(driverUserId);
+    if (entry && Date.now() - entry.geocodedAt < LocationsService.LABEL_TTL_MS) return;
+    if (!MAPBOX_TOKEN) return;
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,neighborhood,locality,place&limit=1`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const geocode = await res.json() as any;
+      const feature = geocode?.features?.[0];
+      if (!feature) return;
+      // Walk context for place > locality > neighborhood
+      const ctx: Array<{ id: string; text: string }> = feature.context ?? [];
+      let label: string | undefined;
+      for (const kind of ['place', 'locality', 'neighborhood']) {
+        const found = ctx.find((c) => c.id?.startsWith(kind + '.'));
+        if (found?.text) { label = found.text; break; }
+      }
+      if (!label) {
+        const name = feature.place_name as string | undefined;
+        label = name?.split(',')[0].trim() || undefined;
+      }
+      if (label) {
+        this.labelCache.set(driverUserId, { label, geocodedAt: Date.now() });
+      }
+    } catch {
+      // silently ignore geocoding errors
+    }
+  }
 
   async getLocations(userId: string, dto: GetLocationsDto) {
     return this.db.db
@@ -159,6 +198,7 @@ export class LocationsService {
       driverName: string;
       driverCode: string;
       vehicleName?: string;
+      locationLabel?: string;
     },
   ): LiveLocation {
     const speedKmh = (Number(point.speed) || 0) * 3.6;
@@ -174,6 +214,7 @@ export class LocationsService {
       speed: Math.round(speedKmh * 10) / 10,
       heading: point.heading != null ? Number(point.heading) : undefined,
       status: deriveStatus(speedKmh, ageMs),
+      locationLabel: meta.locationLabel,
       updatedAt: new Date(ts).toISOString(),
     };
   }

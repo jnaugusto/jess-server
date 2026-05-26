@@ -45,6 +45,8 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().describe('Resend API key for transactional emails'),
     RESEND_FROM: z.string().describe('Email sender address for invites'),
     PUBLIC_WEB_URL: z.string().url().describe('Public web URL for invite accept links'),
+    VAPID_PUBLIC_KEY: z.string().describe('VAPID public key (base64url) for Web Push'),
+    VAPID_PRIVATE_KEY_JWK: z.string().describe('VAPID private key as JSON-stringified JWK'),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

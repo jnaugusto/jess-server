@@ -278,3 +278,51 @@ export const selectDriverInviteSchema = createSelectSchema(driverInvites);
 export const insertDriverInviteSchema = createInsertSchema(driverInvites);
 export const selectUserSettingsSchema = createSelectSchema(userSettings);
 export const insertUserSettingsSchema = createInsertSchema(userSettings);
+
+// ─────────── Geofences ───────────
+export const geofences = pgTable(
+  'geofences',
+  {
+    id: text('id').primaryKey(),
+    ownerUserId: text('owner_user_id').notNull().references(() => users.id),
+    name: text('name').notNull(),
+    color: text('color').notNull().default('#d4ff4f'),
+    shape: text('shape').notNull(), // 'polygon' | 'circle'
+    /** JSON-encoded [[lng,lat],...] closed ring for polygon zones */
+    coordinates: text('coordinates'),
+    centerLng: doublePrecision('center_lng'),
+    centerLat: doublePrecision('center_lat'),
+    radiusM: doublePrecision('radius_m'),
+    trigger: text('trigger').notNull().default('both'), // 'enter'|'exit'|'both'
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    ownerIdx: index('idx_geofences_owner').on(table.ownerUserId),
+  }),
+);
+
+export type Geofence    = InferSelectModel<typeof geofences>;
+export type NewGeofence = InferInsertModel<typeof geofences>;
+export const selectGeofenceSchema = createSelectSchema(geofences);
+export const insertGeofenceSchema = createInsertSchema(geofences);
+
+// ─────────── Push Subscriptions ───────────
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index('idx_push_subs_user').on(table.userId),
+  }),
+);
+
+export type PushSubscription    = InferSelectModel<typeof pushSubscriptions>;
+export type NewPushSubscription = InferInsertModel<typeof pushSubscriptions>;
