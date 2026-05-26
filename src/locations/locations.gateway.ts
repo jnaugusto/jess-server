@@ -419,6 +419,22 @@ export class LocationsGateway
   }
 
   /**
+   * Driver just started a new trip. Re-announce their presence so the
+   * dashboard gets a fresh "Driver online / started tracking" notification
+   * even when the socket was already connected from a previous session.
+   */
+  @SubscribeMessage('trip:started')
+  async handleTripStarted(@ConnectedSocket() client: AuthedSocket) {
+    const driverUserId = client.data.userId;
+    if (!driverUserId) return;
+    void this.announceAvailable(driverUserId).catch((e) =>
+      this.logger.warn(
+        `announceAvailable (trip:started) failed: ${e instanceof Error ? e.message : e}`,
+      ),
+    );
+  }
+
+  /**
    * Mark a driver offline for a workspace.
    */
   markDriverOffline(workspaceUserId: string, driverId: string) {
