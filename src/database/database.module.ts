@@ -80,6 +80,43 @@ export class DatabaseModule implements OnModuleInit, OnModuleDestroy {
         WHERE driver_user_id IS NOT NULL
     `);
 
+    // ── geofences table ─────────────────────────────────────────────────────
+    await this.databaseService.query(`
+      CREATE TABLE IF NOT EXISTS geofences (
+        id            text PRIMARY KEY,
+        owner_user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name          text NOT NULL,
+        color         text NOT NULL DEFAULT '#d4ff4f',
+        shape         text NOT NULL,
+        coordinates   text,
+        center_lng    double precision,
+        center_lat    double precision,
+        radius_m      double precision,
+        trigger       text NOT NULL DEFAULT 'both',
+        active        boolean NOT NULL DEFAULT true,
+        created_at    timestamp NOT NULL DEFAULT now(),
+        updated_at    timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await this.databaseService.query(`
+      CREATE INDEX IF NOT EXISTS idx_geofences_owner ON geofences (owner_user_id)
+    `);
+
+    // ── push_subscriptions table ─────────────────────────────────────────────
+    await this.databaseService.query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id         text PRIMARY KEY,
+        user_id    text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        endpoint   text NOT NULL UNIQUE,
+        p256dh     text NOT NULL,
+        auth       text NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await this.databaseService.query(`
+      CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions (user_id)
+    `);
+
     this.logger.log('Schema migrations applied.');
 
     // ── Backfill: driver_id on existing tracks ───────────────────────────────

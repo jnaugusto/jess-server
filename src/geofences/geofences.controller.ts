@@ -20,15 +20,13 @@ export class GeofencesController {
 
   @Get()
   async list(@Session() session: UserSession) {
-    const data = await this.svc.list(session.user.id);
-    return { success: true, data };
+    return this.svc.list(session.user.id);
   }
 
   @Post()
   async create(@Session() session: UserSession, @Body() body: unknown) {
     const dto = CreateGeofenceSchema.parse(body);
-    const data = await this.svc.create(session.user.id, dto);
-    return { success: true, data };
+    return this.svc.create(session.user.id, dto);
   }
 
   @Patch(':id')
@@ -38,13 +36,11 @@ export class GeofencesController {
     @Body() body: unknown,
   ) {
     const dto = UpdateGeofenceSchema.parse(body);
-    const data = await this.svc.update(session.user.id, id, dto);
-    return { success: true, data };
+    return this.svc.update(session.user.id, id, dto);
   }
 
   @Delete(':id')
   async remove(@Session() session: UserSession, @Param('id') id: string) {
-    const data = await this.svc.remove(session.user.id, id);
-    return { success: true, data };
+    return this.svc.remove(session.user.id, id);
   }
 }
