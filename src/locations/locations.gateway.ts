@@ -32,18 +32,33 @@ interface LiveLocationBroadcast {
   updatedAt: string;
 }
 
-const corsOrigins = (
-  process.env.CORS_ORIGINS ??
-  'http://localhost:5173,http://localhost:5174,http://localhost:4173,http://localhost:3000'
-)
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+const corsOrigins = new Set([
+  ...(
+    process.env.CORS_ORIGINS ??
+    'http://localhost:5173,http://localhost:5174,http://localhost:4173,http://localhost:3000'
+  )
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
+  // Capacitor WebView origins — must be allowed or the socket handshake
+  // gets a 403 before auth even runs.
+  'capacitor://localhost',
+  'http://localhost',
+  'https://localhost',
+]);
 
 @WebSocketGateway({
   namespace: '/locations',
   cors: {
-    origin: corsOrigins,
+    // Allow listed origins AND null/missing origin (native WebViews often
+    // omit the Origin header entirely).
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || corsOrigins.has(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`WebSocket origin not allowed: ${origin}`));
+      }
+    },
     credentials: true,
   },
   // Detect dead sockets (force-killed apps) in ~15 s instead of the
@@ -187,6 +202,9 @@ export class LocationsGateway
       this.locationsService.getLastLocationForDriverUser(driverUserId),
     ]);
     for (const meta of driverRows) {
+      // Always include driverName/driverCode so the dashboard can show a
+      // "Driver online" toast even for a first-time driver who has no prior
+      // GPS history (lastLoc === null, e.g. PowerSync not yet synced).
       const payload = lastLoc
         ? ({
             driverId: meta.driverId,
@@ -200,7 +218,11 @@ export class LocationsGateway
             status: 'standby' as const,
             updatedAt: new Date(lastLoc.timestamp).toISOString(),
           } satisfies LiveLocationBroadcast)
-        : { driverId: meta.driverId };
+        : {
+            driverId: meta.driverId,
+            driverName: meta.driverName,
+            driverCode: meta.driverCode,
+          };
       this.server
         .to(`user:${meta.workspaceOwnerUserId}`)
         .emit('driver:available', payload);
