@@ -47,7 +47,7 @@ EXPERIENCE:
 SKILLS:
 - Backend: NestJS, Node.js, Laravel, .NET Core, ASP.NET MVC, C#, PHP, REST APIs, BullMQ, Microservices
 - Frontend: Vue.js, React, Next.js, Angular, Quasar, Ionic, Tailwind CSS, TypeScript
-- Database: MongoDB, PostgreSQL, Drizzle ORM, MySQL, MS SQL Server, Redis, Elasticsearch
+- Database: MongoDB, PostgreSQL, Drizzle ORM, MySQL, MS SQL Server, Redis
 - DevOps / Cloud: GCP, Cloud Run, GKE, Docker, Kubernetes, Linux, CI/CD, GitHub Actions
 - Mapping & Location: Mapbox GL JS, Capacitor, PowerSync, Geolocation API, GeoJSON, Real-Time Tracking
 - AI / Integrations: Anthropic Claude, Replicate, Tesseract OCR, Streaming SSE, PDF.js
