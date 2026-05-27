@@ -19,10 +19,11 @@ EXPERIENCE:
 1. Senior Software Engineer — Logmaster Australia (June 2021 – Present, Full-time)
    - Led architectural migration from legacy WordPress monolith to modern API-first architecture
    - Directed "Version 2" platform rebuild with NestJS, Vue.js, and Tailwind CSS
-   - Engineered high-performance PDF report generation system using Playwright (multi-page, at scale)
-   - Boosted application responsiveness via MongoDB indexing and Redis caching
-   - Deployed and managed containerized applications on GCP (Cloud Run & GKE) using Docker
-   Tech: NestJS, Vue.js, Tailwind CSS, MongoDB, Redis, GCP, Docker, Playwright
+   - Shipped manual events EWD UI and shared HVNL activity graph engine for NHVR compliance
+   - Separated report generation — API enqueues Bull jobs; GKE worker renders PDFs off the request path
+   - Report worker: ~10 min → under 1 min; hundreds–1,000+ daily; PDF compression and chunked merge
+   - Mobile report delivery with ZIP bundling and MD5 verification
+   Tech: NestJS, Vue.js, Tailwind CSS, MongoDB, Redis, BullMQ, GCP, Docker, Playwright
 
 2. Full Stack Developer — DigitalFaktur (January 2021 – December 2021, Full-time)
    - Built cross-platform mobile apps using Quasar Framework and Ionic
@@ -34,8 +35,8 @@ EXPERIENCE:
 3. Full Stack Developer — Corebridge (April 2017 – February 2020, Full-time)
    - Built dual-sided eCommerce ecosystem using .NET Core and Angular
    - Optimized CRM using ASP.NET MVC
-   - Designed SQL Server schemas and integrated Elasticsearch for search
-   Tech: C#, .NET Core, ASP.NET MVC, Angular, MS SQL Server, Elasticsearch
+   - Designed SQL Server schemas and stored procedures for transactional data
+   Tech: C#, .NET Core, ASP.NET MVC, Angular, MS SQL Server
 
 4. Software Engineer — Cleverlearn English Language Institute (January 2015 – March 2017, Full-time)
    - Architected "ESLflex" virtual classroom — migrated from C# desktop to WebRTC web app
@@ -44,20 +45,22 @@ EXPERIENCE:
    Tech: C#, WebRTC, Node.js, Socket.io, Vue.js, Laravel, MySQL
 
 SKILLS:
-- Backend: NestJS, Node.js, Laravel, .NET Core, ASP.NET MVC, C#, PHP, REST APIs, Microservices
-- Frontend: Vue.js, React, Angular, Quasar, Ionic, Tailwind CSS, TypeScript
-- Database: MongoDB, MySQL, MS SQL Server, Redis, Elasticsearch
+- Backend: NestJS, Node.js, Laravel, .NET Core, ASP.NET MVC, C#, PHP, REST APIs, BullMQ, Microservices
+- Frontend: Vue.js, React, Next.js, Angular, Quasar, Ionic, Tailwind CSS, TypeScript
+- Database: MongoDB, PostgreSQL, Drizzle ORM, MySQL, MS SQL Server, Redis, Elasticsearch
 - DevOps / Cloud: GCP, Cloud Run, GKE, Docker, Kubernetes, Linux, CI/CD, GitHub Actions
-- Mapping & Location: Mapbox GL JS, Geolocation API, GeoJSON, Real-Time Tracking
+- Mapping & Location: Mapbox GL JS, Capacitor, PowerSync, Geolocation API, GeoJSON, Real-Time Tracking
+- AI / Integrations: Anthropic Claude, Replicate, Tesseract OCR, Streaming SSE, PDF.js
 - Tools: Playwright, Socket.io, WebRTC, Swagger, Git, Jira, Nginx
 
-SELF-BUILT PROJECTS:
-1. Location Tracking App & Dashboard — Real-time GPS tracking via WebSockets, Mapbox GL JS map with live trails, NestJS REST API, GeoJSON geofencing
-2. Multi-Page PDF Generator — Playwright-based headless Chromium renderer, Redis job queue, handles 50+ page reports; powers Logmaster Australia compliance reports
-3. AI Image Restoration — AI super-resolution, 2x/4x upscaling, React drag-and-drop UI
-4. Image Compression Tool — Bulk compress/convert images to WebP/JPG/PNG, quality slider, batch download; served via NestJS + Sharp API
-5. Image to Text (OCR) — OCR pipeline with image pre-processing, multi-language support, handles JPG/PNG/scanned PDFs
-6. CSV to JSON Converter — Custom field mapping, type coercion, nested JSON from dot-notation headers, REST API for pipeline automation
+PROJECTS (HIGHLIGHTS):
+1. Logmaster — Australian fleet compliance platform; EWD manual events, activity graphs, GKE report pipeline; interactive demo on jess.dev
+2. Tarales Fleet Tracking — Capacitor driver app + NestJS API + Next.js dashboard at tracking.jnaugusto.com; PowerSync offline sync, live Mapbox, geofences
+3. ESLflex Virtual Classroom — WebRTC classroom for Cleverlearn; up to 8 participants, whiteboard, live chat
+4. CoreBridge eCommerce & CRM — .NET Core + Angular storefront/admin and SQL Server CRM backend
+
+DEVELOPER TOOLS (on jess.dev):
+- Portfolio AI Assistant (this chat), AI Image Restoration, Image Compression, Image/PDF OCR, CSV to JSON
 `;
 
 const SYSTEM_PROMPT = `You are Jess's personal AI assistant embedded on his developer portfolio at jess.dev.
