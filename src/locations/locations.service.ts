@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { and, between, desc, eq, inArray, sql } from 'drizzle-orm';
-import { extractPlace } from '../common/geocode/extract-place';
+import { extractPlace, buildGeocodeUrl } from '../common/geocode/extract-place';
 import { DatabaseService } from '../database/database.service';
 import { drivers, locationPoints, vehicles } from '../database/schema';
 import { locationsOld as locations } from '../database/schema.old';
@@ -58,7 +58,7 @@ export class LocationsService {
     if (entry && Date.now() - entry.geocodedAt < LocationsService.LABEL_TTL_MS) return;
     if (!MAPBOX_TOKEN) return;
     try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,neighborhood,locality,place&limit=1`;
+      const url = buildGeocodeUrl(lng, lat, MAPBOX_TOKEN);
       const res = await fetch(url);
       if (!res.ok) return;
       const geocode = await res.json() as any;

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { eq, desc, inArray, and } from 'drizzle-orm';
-import { extractPlace } from '../common/geocode/extract-place';
+import { extractPlace, buildGeocodeUrl, geocodeNeedsRefresh } from '../common/geocode/extract-place';
 import { DatabaseService } from '../database/database.service';
 import { tracks, locationPoints, drivers, vehicles } from '../database/schema';
 
@@ -9,10 +9,18 @@ const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN ?? '';
 async function geocodePoint(lat: number, lng: number): Promise<unknown> {
   if (!MAPBOX_TOKEN) return null;
   try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,neighborhood,locality,place&limit=1`;
-    const res = await fetch(url);
+    const res = await fetch(buildGeocodeUrl(lng, lat, MAPBOX_TOKEN));
     if (!res.ok) return null;
     return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function parseGeocode(json: string | null): unknown {
+  if (!json) return null;
+  try {
+    return JSON.parse(json);
   } catch {
     return null;
   }
@@ -207,12 +215,20 @@ export class TracksService {
     // If any completed trips are missing geocodes (e.g. they synced after the
     // server started), kick off a background backfill so routes populate on
     // the next list refresh without blocking this response.
-    const needsGeocode = rows.some(
-      (t) => t.status === 'completed' && (!t.startGeocode || !t.endGeocode),
-    );
+    const needsGeocode = rows.some((t) => {
+      if (t.status !== 'completed') return false;
+      if (!t.startGeocode || !t.endGeocode) return true;
+      return (
+        geocodeNeedsRefresh(parseGeocode(t.startGeocode)) ||
+        geocodeNeedsRefresh(parseGeocode(t.endGeocode))
+      );
+    });
     if (needsGeocode) {
       void this.backfillGeocode().catch((e) =>
         this.logger.warn(`backfillGeocode failed: ${e instanceof Error ? e.message : e}`),
+      );
+      void this.refreshStaleGeocodes().catch((e) =>
+        this.logger.warn(`refreshStaleGeocodes failed: ${e instanceof Error ? e.message : e}`),
       );
     }
 
@@ -315,25 +331,29 @@ export class TracksService {
     let startGeocodeJson = track.startGeocode ?? null;
     let endGeocodeJson   = track.endGeocode   ?? null;
 
-    if (!startGeocodeJson && points.length > 0) {
-      const geo = await geocodePoint(points[0].lat, points[0].lng);
-      if (geo) {
-        startGeocodeJson = JSON.stringify(geo);
-        await this.db.query('UPDATE tracks SET start_geocode = $1 WHERE id = $2', [startGeocodeJson, track.id]).catch(() => {});
+    if (points.length > 0) {
+      const startObj = parseGeocode(startGeocodeJson);
+      if (!startGeocodeJson || geocodeNeedsRefresh(startObj)) {
+        const geo = await geocodePoint(points[0].lat, points[0].lng);
+        if (geo) {
+          startGeocodeJson = JSON.stringify(geo);
+          await this.db.query('UPDATE tracks SET start_geocode = $1 WHERE id = $2', [startGeocodeJson, track.id]).catch(() => {});
+        }
       }
-    }
 
-    if (!endGeocodeJson && points.length > 0) {
       const last = points[points.length - 1];
-      const geo = await geocodePoint(last.lat, last.lng);
-      if (geo) {
-        endGeocodeJson = JSON.stringify(geo);
-        await this.db.query('UPDATE tracks SET end_geocode = $1 WHERE id = $2', [endGeocodeJson, track.id]).catch(() => {});
+      const endObj = parseGeocode(endGeocodeJson);
+      if (!endGeocodeJson || geocodeNeedsRefresh(endObj)) {
+        const geo = await geocodePoint(last.lat, last.lng);
+        if (geo) {
+          endGeocodeJson = JSON.stringify(geo);
+          await this.db.query('UPDATE tracks SET end_geocode = $1 WHERE id = $2', [endGeocodeJson, track.id]).catch(() => {});
+        }
       }
     }
 
-    const startGeocodeObj = startGeocodeJson ? (() => { try { return JSON.parse(startGeocodeJson); } catch { return null; } })() : null;
-    const endGeocodeObj   = endGeocodeJson   ? (() => { try { return JSON.parse(endGeocodeJson);   } catch { return null; } })() : null;
+    const startGeocodeObj = parseGeocode(startGeocodeJson);
+    const endGeocodeObj   = parseGeocode(endGeocodeJson);
 
     return {
       id: track.id,
@@ -417,7 +437,8 @@ export class TracksService {
       }
 
       for (const row of rows.rows) {
-        if (!row.start_geocode) {
+        const startObj = parseGeocode(row.start_geocode);
+        if (!row.start_geocode || geocodeNeedsRefresh(startObj)) {
           const geo = await geocodePoint(row.first_lat, row.first_lng);
           if (geo) {
             await this.db.query(
@@ -427,7 +448,8 @@ export class TracksService {
           }
         }
 
-        if (!row.end_geocode) {
+        const endObj = parseGeocode(row.end_geocode);
+        if (!row.end_geocode || geocodeNeedsRefresh(endObj)) {
           const geo = await geocodePoint(row.last_lat, row.last_lng);
           if (geo) {
             await this.db.query(
@@ -438,6 +460,82 @@ export class TracksService {
         }
 
         // Throttle: 5 requests/sec max (Mapbox free tier is generous but let's be nice).
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    } finally {
+      this.geocodeRunning = false;
+    }
+  }
+
+  /** Re-fetch Mapbox results that only have suburb-level features cached. */
+  async refreshStaleGeocodes() {
+    if (!MAPBOX_TOKEN) return;
+    if (this.geocodeRunning) return;
+    this.geocodeRunning = true;
+
+    type BackfillRow = {
+      id: string;
+      start_geocode: string | null;
+      end_geocode: string | null;
+      first_lat: number;
+      first_lng: number;
+      last_lat: number;
+      last_lng: number;
+    };
+
+    try {
+      const rows = (await this.db.query(`
+        SELECT
+          t.id,
+          t.start_geocode,
+          t.end_geocode,
+          first_pts.latitude  AS first_lat,
+          first_pts.longitude AS first_lng,
+          last_pts.latitude   AS last_lat,
+          last_pts.longitude  AS last_lng
+        FROM tracks t
+        JOIN LATERAL (
+          SELECT latitude, longitude FROM location_points
+          WHERE track_id = t.id ORDER BY timestamp ASC LIMIT 1
+        ) first_pts ON true
+        JOIN LATERAL (
+          SELECT latitude, longitude FROM location_points
+          WHERE track_id = t.id ORDER BY timestamp DESC LIMIT 1
+        ) last_pts ON true
+        WHERE t.status = 'completed'
+          AND (t.start_geocode IS NOT NULL OR t.end_geocode IS NOT NULL)
+      `)) as { rows: BackfillRow[] };
+
+      const stale = rows.rows.filter((row) =>
+        geocodeNeedsRefresh(parseGeocode(row.start_geocode)) ||
+        geocodeNeedsRefresh(parseGeocode(row.end_geocode)),
+      );
+
+      if (stale.length > 0) {
+        this.logger.log(`[refreshStaleGeocodes] refreshing ${stale.length} trip(s)`);
+      }
+
+      for (const row of stale) {
+        if (geocodeNeedsRefresh(parseGeocode(row.start_geocode))) {
+          const geo = await geocodePoint(row.first_lat, row.first_lng);
+          if (geo) {
+            await this.db.query(
+              'UPDATE tracks SET start_geocode = $1 WHERE id = $2',
+              [JSON.stringify(geo), row.id],
+            ).catch(() => {});
+          }
+        }
+
+        if (geocodeNeedsRefresh(parseGeocode(row.end_geocode))) {
+          const geo = await geocodePoint(row.last_lat, row.last_lng);
+          if (geo) {
+            await this.db.query(
+              'UPDATE tracks SET end_geocode = $1 WHERE id = $2',
+              [JSON.stringify(geo), row.id],
+            ).catch(() => {});
+          }
+        }
+
         await new Promise((r) => setTimeout(r, 200));
       }
     } finally {

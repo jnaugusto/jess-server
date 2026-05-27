@@ -13,7 +13,9 @@ export class TracksModule implements OnModuleInit {
   constructor(private readonly tracksService: TracksService) {}
 
   onModuleInit() {
-    // Fire-and-forget: backfill runs in the background after startup.
-    this.tracksService.backfillGeocode().catch(() => {});
+    // Fire-and-forget: backfill missing geocodes, then upgrade stale suburb-only ones.
+    void this.tracksService.backfillGeocode()
+      .then(() => this.tracksService.refreshStaleGeocodes())
+      .catch(() => {});
   }
 }
