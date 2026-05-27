@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { eq, desc, inArray, and } from 'drizzle-orm';
+import { extractPlace } from '../common/geocode/extract-place';
 import { DatabaseService } from '../database/database.service';
 import { tracks, locationPoints, drivers, vehicles } from '../database/schema';
 
@@ -15,21 +16,6 @@ async function geocodePoint(lat: number, lng: number): Promise<unknown> {
   } catch {
     return null;
   }
-}
-
-function extractPlace(geocode: unknown): string | undefined {
-  if (!geocode) return undefined;
-  const feature = (geocode as any)?.features?.[0];
-  if (!feature) return undefined;
-  // Walk context array for place > locality > neighborhood
-  const ctx: Array<{ id: string; text: string }> = feature.context ?? [];
-  for (const kind of ['place', 'locality', 'neighborhood']) {
-    const found = ctx.find((c) => c.id?.startsWith(kind + '.'));
-    if (found?.text) return found.text;
-  }
-  // Fallback: first comma segment of place_name
-  const name = feature.place_name as string | undefined;
-  return name?.split(',')[0].trim() || undefined;
 }
 
 type TripEvent = {

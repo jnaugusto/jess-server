@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, desc, eq, gte, inArray, lt } from 'drizzle-orm';
 import { Readable } from 'stream';
+import { extractPlace } from '../common/geocode/extract-place';
 import { DatabaseService } from '../database/database.service';
 import { drivers, tracks, userSettings, vehicles } from '../database/schema';
 import { TracksService } from '../tracks/tracks.service';
@@ -80,18 +81,6 @@ function windowFromQuery(from?: string, to?: string, range?: string): DateWindow
   }
 
   return { startMs, endMs: now, label };
-}
-
-function extractPlace(geocode: unknown): string | undefined {
-  if (!geocode) return undefined;
-  const feature = (geocode as { features?: Array<{ context?: Array<{ id: string; text: string }>; place_name?: string }> })?.features?.[0];
-  if (!feature) return undefined;
-  const ctx = feature.context ?? [];
-  for (const kind of ['place', 'locality', 'neighborhood']) {
-    const found = ctx.find((c) => c.id?.startsWith(`${kind}.`));
-    if (found?.text) return found.text;
-  }
-  return feature.place_name?.split(',')[0].trim() || undefined;
 }
 
 @Injectable()

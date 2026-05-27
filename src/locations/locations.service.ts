@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { and, between, desc, eq, inArray, sql } from 'drizzle-orm';
+import { extractPlace } from '../common/geocode/extract-place';
 import { DatabaseService } from '../database/database.service';
 import { drivers, locationPoints, vehicles } from '../database/schema';
 import { locationsOld as locations } from '../database/schema.old';
@@ -61,19 +62,7 @@ export class LocationsService {
       const res = await fetch(url);
       if (!res.ok) return;
       const geocode = await res.json() as any;
-      const feature = geocode?.features?.[0];
-      if (!feature) return;
-      // Walk context for place > locality > neighborhood
-      const ctx: Array<{ id: string; text: string }> = feature.context ?? [];
-      let label: string | undefined;
-      for (const kind of ['place', 'locality', 'neighborhood']) {
-        const found = ctx.find((c) => c.id?.startsWith(kind + '.'));
-        if (found?.text) { label = found.text; break; }
-      }
-      if (!label) {
-        const name = feature.place_name as string | undefined;
-        label = name?.split(',')[0].trim() || undefined;
-      }
+      const label = extractPlace(geocode);
       if (label) {
         this.labelCache.set(driverUserId, { label, geocodedAt: Date.now() });
       }
