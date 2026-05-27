@@ -28,6 +28,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { DriveModule } from './drive/drive.module';
 import { GeofencesModule } from './geofences/geofences.module';
 import { PushModule } from './push/push.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { PushModule } from './push/push.module';
     ChatModule,
     GeofencesModule,
     PushModule,
+    ReportsModule,
   ],
 
   controllers: [AppController],

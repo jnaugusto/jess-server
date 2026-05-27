@@ -7,6 +7,7 @@ import { TracksService } from './tracks.service';
   imports: [DatabaseModule],
   controllers: [TracksController],
   providers: [TracksService],
+  exports: [TracksService],
 })
 export class TracksModule implements OnModuleInit {
   constructor(private readonly tracksService: TracksService) {}
