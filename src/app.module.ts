@@ -26,6 +26,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { AnalyzeSiteModule } from './analyze-site/analyze-site.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { DriveModule } from './drive/drive.module';
+import { InboundModule } from './inbound/inbound.module';
 import { GeofencesModule } from './geofences/geofences.module';
 import { PushModule } from './push/push.module';
 import { ReportsModule } from './reports/reports.module';
@@ -66,6 +67,7 @@ import { ReportsModule } from './reports/reports.module';
     AnalyzeSiteModule,
     DriveModule,
     ChatModule,
+    InboundModule,
     GeofencesModule,
     PushModule,
     ReportsModule,

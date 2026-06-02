@@ -8,7 +8,9 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { env } from './env';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: exposes req.rawBody (Buffer) for webhook signature verification
+  // (Resend inbound / Svix) while still JSON-parsing the body normally.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   const config = new DocumentBuilder()
     .setTitle('Jess Server API')

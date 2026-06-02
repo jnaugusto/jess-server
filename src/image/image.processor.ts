@@ -16,11 +16,11 @@ export class ImageProcessor extends WorkerHost {
   private readonly logger = new Logger(ImageProcessor.name);
 
   async process(
-    job: Job<UpscaleJobData>,
+    job: Job,
   ): Promise<{ success: boolean; base64: string } | undefined> {
     switch (job.name) {
       case 'upscale':
-        return await this.handleUpscale(job);
+        return await this.handleUpscale(job as Job<UpscaleJobData>);
       default:
         this.logger.warn(`Unknown job name: ${job.name}`);
         return undefined;

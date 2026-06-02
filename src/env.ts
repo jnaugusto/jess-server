@@ -44,6 +44,18 @@ export const env = createEnv({
     GOOGLE_DRIVE_FOLDER_ID: z.string().describe('Google Drive folder ID to upload files into'),
     RESEND_API_KEY: z.string().describe('Resend API key for transactional emails'),
     RESEND_FROM: z.string().describe('Email sender address for invites'),
+    RESEND_WEBHOOK_SECRET: z
+      .string()
+      .optional()
+      .describe('Svix signing secret (whsec_...) for verifying the Resend inbound webhook'),
+    CONTACT_FROM: z
+      .string()
+      .default('contact@jnaugusto.com')
+      .describe('Verified Resend sender used when forwarding inbound contact mail'),
+    CONTACT_FORWARD_TO: z
+      .string()
+      .default('jessnoelaugusto@gmail.com')
+      .describe('Destination inbox that inbound contact mail is forwarded to'),
     PUBLIC_WEB_URL: z.string().url().describe('Public web URL for invite accept links'),
     VAPID_PUBLIC_KEY: z.string().describe('VAPID public key (base64url) for Web Push'),
     VAPID_PRIVATE_KEY_JWK: z.string().describe('VAPID private key as JSON-stringified JWK'),

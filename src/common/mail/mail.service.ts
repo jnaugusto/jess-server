@@ -48,6 +48,54 @@ export class MailService {
     });
   }
 
+  /**
+   * Forward an inbound email (received via the Resend inbound webhook) to the
+   * configured destination inbox. Reply-to is set to the original sender so a
+   * reply from the inbox goes straight back to them.
+   */
+  async forwardInbound(opts: {
+    from?: string;
+    originalTo?: string;
+    subject?: string;
+    html?: string;
+    text?: string;
+  }) {
+    if (!this.resend) {
+      this.logger.warn('RESEND_API_KEY not configured — skipping inbound forward');
+      return null;
+    }
+
+    const escape = (s = '') =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const subject = opts.subject?.trim() || '(no subject)';
+    const meta =
+      `<p style="color:#888;font-size:12px;margin:0 0 12px;">Forwarded from jnaugusto.com — from: ${escape(opts.from)}` +
+      `${opts.originalTo ? ` · to: ${escape(opts.originalTo)}` : ''}</p>` +
+      `<hr style="border:none;border-top:1px solid #eee;margin:0 0 16px;"/>`;
+    const body =
+      opts.html ??
+      (opts.text
+        ? `<pre style="white-space:pre-wrap;font-family:sans-serif;">${escape(opts.text)}</pre>`
+        : '<p>(no content)</p>');
+
+    const { data, error } = await this.resend.emails.send({
+      from: env.CONTACT_FROM,
+      to: env.CONTACT_FORWARD_TO,
+      replyTo: opts.from || undefined,
+      subject: `[jnaugusto] ${subject}`,
+      html: meta + body,
+      text: opts.text,
+    });
+
+    if (error) {
+      this.logger.error(`Resend failed to forward inbound mail: ${JSON.stringify(error)}`);
+      return null;
+    }
+
+    this.logger.log(`Forwarded inbound mail → ${env.CONTACT_FORWARD_TO} (id: ${data?.id})`);
+    return data;
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   /**

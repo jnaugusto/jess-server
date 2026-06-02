@@ -38,10 +38,10 @@ export class PdfProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<PdfJobData>) {
+  async process(job: Job) {
     switch (job.name) {
       case 'generate':
-        return await this.handleGeneratePdf(job);
+        return await this.handleGeneratePdf(job as Job<PdfJobData>);
       default:
         this.logger.warn(`Unknown job name: ${job.name}`);
         return undefined;
