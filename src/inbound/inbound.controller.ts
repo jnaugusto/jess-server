@@ -9,6 +9,7 @@ import {
   type RawBodyRequest,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { Public } from '@thallesp/nestjs-better-auth';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 import { MailService } from '../common/mail/mail.service';
@@ -63,6 +64,7 @@ export class InboundController {
 
   constructor(private readonly mail: MailService) {}
 
+  @Public()
   @Post('resend-inbound')
   @HttpCode(200)
   async handle(
