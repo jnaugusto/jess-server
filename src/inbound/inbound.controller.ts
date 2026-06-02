@@ -15,6 +15,7 @@ import { MailService } from '../common/mail/mail.service';
 import { env } from '../env';
 
 type InboundData = {
+  email_id?: string;
   from?: string | { address?: string; email?: string; name?: string };
   to?: string | string[] | { address?: string };
   subject?: string;
@@ -89,21 +90,30 @@ export class InboundController {
     }
 
     const data = payload.data ?? {};
+
+    // The email.received webhook delivers metadata only. If the body is not
+    // present inline, fetch the full message via the Received Emails API.
+    let full = data;
+    if (!data.html && !data.text && data.email_id) {
+      const fetched = await this.mail.fetchReceivedEmail(data.email_id);
+      if (fetched) full = { ...data, ...fetched };
+    }
+
     const from =
-      typeof data.from === 'string' ? data.from : (data.from?.address ?? data.from?.email);
-    const to = Array.isArray(data.to)
-      ? data.to.join(', ')
-      : typeof data.to === 'string'
-        ? data.to
-        : data.to?.address;
+      typeof full.from === 'string' ? full.from : (full.from?.address ?? full.from?.email);
+    const to = Array.isArray(full.to)
+      ? full.to.join(', ')
+      : typeof full.to === 'string'
+        ? full.to
+        : full.to?.address;
 
     try {
       await this.mail.forwardInbound({
         from,
         originalTo: to,
-        subject: data.subject,
-        html: data.html,
-        text: data.text,
+        subject: full.subject,
+        html: full.html,
+        text: full.text,
       });
     } catch (err) {
       this.logger.error('Failed to forward inbound mail', err as Error);

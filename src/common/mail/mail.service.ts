@@ -14,6 +14,40 @@ export class MailService {
     }
   }
 
+  /**
+   * Fetch a received (inbound) email's full content by id. The Resend
+   * `email.received` webhook only delivers metadata, so the body (html/text)
+   * must be retrieved separately via the Received Emails API.
+   */
+  async fetchReceivedEmail(id: string): Promise<{
+    from?: string;
+    to?: string[];
+    subject?: string;
+    html?: string;
+    text?: string;
+  } | null> {
+    if (!env.RESEND_API_KEY) return null;
+    try {
+      const res = await fetch(`https://api.resend.com/emails/receiving/${id}`, {
+        headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` },
+      });
+      if (!res.ok) {
+        this.logger.warn(`Received-email fetch failed (${res.status}) for id ${id}`);
+        return null;
+      }
+      return (await res.json()) as {
+        from?: string;
+        to?: string[];
+        subject?: string;
+        html?: string;
+        text?: string;
+      };
+    } catch (err) {
+      this.logger.error(`Received-email fetch error for id ${id}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
   // ── Public send methods ────────────────────────────────────────────────────
 
   async sendDriverInvite(opts: {
